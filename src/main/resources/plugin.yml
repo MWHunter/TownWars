@@ -1,0 +1,9 @@
+name: TownWars
+version: ${project.version}
+main: org.abyssmc.townwars.TownWars
+api-version: 1.16
+depend: [Towny]
+commands:
+  war:
+    description: Manage wars
+    usage: /war [declare | end | surrender | help]
