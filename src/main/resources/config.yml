@@ -1,0 +1,50 @@
+capitalsCanBeConquered: false
+conquerIfInNation: true
+conquerIfWithoutNation: true
+costStartNationWar: 1500
+costStartTownWar: 500
+daysConqueredIfInNation: 7
+daysConqueredIfWithoutNation: 7
+isTimeLimitNationWar: true
+isTimeLimitTownWar: true
+killLimitNationWar: 100
+killLimitTownWar: 20
+minPercentOnline: 0.5
+minPlayersOnline: 2
+minPlayersOnlineBypassPercent: 5
+minSecondsBetweenPeaceRequests: 30
+nationWarBlocksTransferPercent: 0.1
+timeLimitNationWar: 36000
+timeLimitTownWar: 12000
+townWarBlocksTransferPercent: 0.1
+allowed-switches-in-war:
+  - ACACIA_DOOR
+  - OAK_DOOR
+  - BIRCH_DOOR
+  - CRIMSON_DOOR
+  - DARK_OAK_DOOR
+  - JUNGLE_DOOR
+  - SPRUCE_DOOR
+  - WARPED_DOOR
+  - STONE_BUTTON
+  - OAK_BUTTON
+  - SPRUCE_BUTTON
+  - BIRCH_BUTTON
+  - JUNGLE_BUTTON
+  - ACACIA_BUTTON
+  - DARK_OAK_BUTTON
+  - CRIMSON_BUTTON
+  - WARPED_BUTTON
+  - POLISHED_BLACKSTONE_BUTTON
+  - LEVER
+  - OAK_PRESSURE_PLATE
+  - SPRUCE_PRESSURE_PLATE
+  - BIRCH_PRESSURE_PLATE
+  - JUNGLE_PRESSURE_PLATE
+  - ACACIA_PRESSURE_PLATE
+  - DARK_OAK_PRESSURE_PLATE
+  - CRIMSON_PRESSURE_PLATE
+  - WARPED_PRESSURE_PLATE
+  - POLISHED_BLACKSTONE_PRESSURE_PLATE
+  - LIGHT_WEIGHTED_PRESSURE_PLATE
+  - HEAVY_WEIGHTED_PRESSURE_PLATE

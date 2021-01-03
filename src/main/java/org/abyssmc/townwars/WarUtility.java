@@ -14,10 +14,13 @@ public class WarUtility {
         War targetWar = null;
         int countWars = 0;
 
+        // This should never happen.  WarCommands should return if the player has no town.
+        // Stack trace just so we know that something is wrong.
         try {
             playerTown = WarCommand.towny.getDataSource().getResident(sender.getName()).getTown();
         } catch (NotRegisteredException e) {
-            sender.sendMessage(ChatColor.RED + "You are not a part of a town");
+            LocaleReader.send(sender, LocaleReader.COMMAND_NOT_PART_OF_TOWN);
+            e.printStackTrace();
             return null;
         }
 
@@ -46,30 +49,16 @@ public class WarUtility {
         }
 
         if (countWars == 0) {
-            sender.sendMessage(ChatColor.RED + "You are not in any wars");
+            LocaleReader.send(sender, LocaleReader.COMMAND_NOT_IN_ANY_WARS);
             return null;
         }
 
         if (countWars > 1 && args.length < 2) {
-            sender.sendMessage(ChatColor.RED + "You must specify a target town when at participating in multiple wars");
+            LocaleReader.send(sender, LocaleReader.COMMAND_MUST_SPECIFY_TOWN_BECAUSE_MULTIPLE_WARS);
             return null;
         }
 
         return targetWar;
-    }
-
-    public static Nation parseTargetNation(String target) {
-        try {
-            return WarCommand.towny.getDataSource().getNation(target);
-        } catch (NotRegisteredException e) {
-            Player targetPlayer = Bukkit.getPlayer(target);
-
-            if (targetPlayer != null) {
-                return getPlayerNation(targetPlayer);
-            }
-        }
-
-        return null;
     }
 
     public static Town parseTargetTown(String target) {
@@ -86,29 +75,33 @@ public class WarUtility {
         return null;
     }
 
+    public static Nation parseTargetNation(String target) {
+        try {
+            return WarCommand.towny.getDataSource().getNation(target);
+        } catch (NotRegisteredException e) {
+            Player targetPlayer = Bukkit.getPlayer(target);
+
+            if (targetPlayer != null) {
+                return getPlayerNation(targetPlayer);
+            }
+        }
+
+        return null;
+    }
+
+    public static Nation getPlayerNation(Player player) {
+        try {
+            return getPlayerTown(player).getNation();
+        } catch (NotRegisteredException e) {
+            return null;
+        }
+    }
+
     public static Town getPlayerTown(Player player) {
         try {
             return WarCommand.towny.getDataSource().getResident(player.getName()).getTown();
         } catch (NotRegisteredException e) {
             return null;
         }
-    }
-
-    public static Nation getPlayerNation(Player player) {
-        try {
-            return WarCommand.towny.getDataSource().getResident(player.getName()).getTown().getNation();
-        } catch (NotRegisteredException e) {
-            return null;
-        }
-    }
-
-    public static War getWar(Town attackers, Town defenders) {
-        for (War war : TownWars.currentWars) {
-            if (war.attackers == attackers && war.defenders == defenders) {
-                return war;
-            }
-        }
-
-        return null;
     }
 }
