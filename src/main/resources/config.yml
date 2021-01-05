@@ -3,6 +3,9 @@ conquerIfInNation: true
 conquerIfWithoutNation: true
 costStartNationWar: 1500
 costStartTownWar: 500
+secondBetweenAnnounceTimeLeft: 60
+costJoinNationWarAttackers: 500
+costJoinNationWarDefenders: 0
 daysConqueredIfInNation: 7
 daysConqueredIfWithoutNation: 7
 isTimeLimitNationWar: true

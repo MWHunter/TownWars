@@ -8,9 +8,6 @@ import java.util.HashSet;
 import static org.abyssmc.townwars.TownWars.allowedSwitches;
 
 public class ConfigHandler {
-    TownWars plugin;
-    FileConfiguration config;
-
     // General settings
     public static double minPercentOnline = 0.5;
     public static double minPlayersOnline = 2;
@@ -20,6 +17,9 @@ public class ConfigHandler {
     public static boolean capitalsCanBeConquered = false;
     public static double costStartTownWar = 500;
     public static double costStartNationWar = 1500;
+    public static double costJoinNationWarAttackers = 500;
+    public static double costJoinNationWarDefenders = 0;
+    public static int secondBetweenAnnounceTimeLeft = 60;
     public static int minSecondsBetweenPeaceRequests = 30;
     public static int daysConqueredIfWithoutNation = 7;
     public static int daysConqueredIfInNation = 7;
@@ -33,15 +33,10 @@ public class ConfigHandler {
     public static boolean isTimeLimitNationWar = true;
     public static int timeLimitNationWar = 36000;
     public static int killLimitNationWar = 100;
+    public static TownWars plugin;
+    public static FileConfiguration config;
 
-    public ConfigHandler(TownWars plugin) {
-        this.plugin = plugin;
-        this.config = plugin.getConfig();
-
-        reload();
-    }
-
-    public void reload() {
+    public static void reload() {
         addMaterials();
 
         minPercentOnline = config.getDouble("minPercentOnline", 0.5);
@@ -52,6 +47,9 @@ public class ConfigHandler {
         capitalsCanBeConquered = config.getBoolean("capitalsCanBeConquered", false);
         costStartTownWar = config.getDouble("costStartTownWar", 500);
         costStartNationWar = config.getDouble("costStartNationWar", 1500);
+        costJoinNationWarAttackers = config.getDouble("costJoinNationWarAttackers", 500);
+        costJoinNationWarDefenders = config.getDouble("costJoinNationWarDefenders", 0);
+        secondBetweenAnnounceTimeLeft = config.getInt("secondsBetweenAnnounceTimeLeft", 60);
         minSecondsBetweenPeaceRequests = config.getInt("minSecondsBetweenPeaceRequests", 30);
         daysConqueredIfWithoutNation = config.getInt("daysConqueredIfWithoutNation", 7);
         daysConqueredIfInNation = config.getInt("daysConqueredIfInNation", 7);
@@ -67,7 +65,7 @@ public class ConfigHandler {
         killLimitNationWar = config.getInt("killLimitNationWar", 100);
     }
 
-    public void addMaterials() {
+    public static void addMaterials() {
         allowedSwitches = new HashSet<>();
 
         for (String string : config.getStringList("allowed-switches-in-war")) {

@@ -1,12 +1,15 @@
 package org.abyssmc.townwars;
 
 import com.palmergames.bukkit.towny.TownyAPI;
-import com.palmergames.bukkit.towny.event.actions.*;
+import com.palmergames.bukkit.towny.event.actions.TownyBuildEvent;
+import com.palmergames.bukkit.towny.event.actions.TownyDestroyEvent;
+import com.palmergames.bukkit.towny.event.actions.TownyExplodingBlocksEvent;
+import com.palmergames.bukkit.towny.event.actions.TownySwitchEvent;
 import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
-import com.palmergames.bukkit.towny.listeners.TownyBlockListener;
 import com.palmergames.bukkit.towny.object.Resident;
 import com.palmergames.bukkit.towny.object.Town;
-import org.bukkit.Bukkit;
+import com.palmergames.bukkit.towny.regen.TownyRegenAPI;
+import org.bukkit.block.Block;
 import org.bukkit.block.Container;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -16,22 +19,15 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.inventory.BlockInventoryHolder;
-import org.bukkit.inventory.InventoryHolder;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.UUID;
 
 public class Events implements Listener {
-    TownWars plugin;
-    TownyAPI towny = TownyAPI.getInstance();
-
-    public Events(TownWars plugin) {
-        this.plugin = plugin;
-    }
     static HashSet<UUID> cancelNextBlockBreakDrop = new HashSet<>();
-
-    // TODO: Rolling back blocks to original state
+    static HashMap<UUID, War> logNextBlockPlace = new HashMap();
+    TownyAPI towny = TownyAPI.getInstance();
 
     // Towny uses event priority high - THAT IS WRONG TOWNY DEVS!
     // Using event priority higher allows us interact with towny's block break event.
@@ -54,12 +50,15 @@ public class Events implements Listener {
                 War war = TownWars.townsUnderSiege.get(destroyTown);
 
                 // Saving container data is a mess in spigot.  It relies on NMS.
+                // I doubt players will build walls with furnaces to stop attackers
                 if (event.getBlock().getState() instanceof Container) return;
 
                 // Quick logic for town wars
                 if (war != null && war.attackers == openerTown) {
                     event.setCancelled(false);
                     cancelNextBlockBreakDrop.add(event.getPlayer().getUniqueId());
+                    war.restoreBlock(event.getBlock().getLocation(), event.getBlock().getBlockData());
+
                     return;
                 }
 
@@ -72,6 +71,7 @@ public class Events implements Listener {
                             // both nations are in a war.
                             event.setCancelled(false);
                             cancelNextBlockBreakDrop.add(event.getPlayer().getUniqueId());
+                            war2.restoreBlock(event.getBlock().getLocation(), event.getBlock().getBlockData());
 
                             return;
                         }
@@ -79,6 +79,31 @@ public class Events implements Listener {
                 }
             }
         } catch (NotRegisteredException ignored) {
+        }
+    }
+
+    @EventHandler
+    public void onExplosionDamagingBlocks(TownyExplodingBlocksEvent event) {
+        int count = 0;
+
+        //List<Block> alreadyAllowed = event.getTownyFilteredBlockList();
+        for (Block block : event.getVanillaBlockList()) {
+            if (!TownWars.townsUnderSiege.containsKey(towny.getTown(block.getLocation()))) continue;
+
+            count++;
+            TownyRegenAPI.beginProtectionRegenTask(block, count, TownyAPI.getInstance().getTownyWorld(block.getLocation().getWorld().getName()));
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onBukkitBlockPlaceEvent(BlockPlaceEvent event) {
+
+        UUID playerUUID = event.getPlayer().getUniqueId();
+        if (logNextBlockPlace.containsKey(playerUUID)) {
+            War war = logNextBlockPlace.get(playerUUID);
+            logNextBlockPlace.remove(playerUUID);
+            event.getBlockReplacedState().getBlock();
+            war.restoreBlock(event.getBlock().getLocation(), event.getBlockReplacedState().getBlockData());
         }
     }
 
@@ -91,12 +116,15 @@ public class Events implements Listener {
                 Town openerTown = towny.getDataSource().getResident(event.getPlayer().getName()).getTown();
                 War war = TownWars.townsUnderSiege.get(placeTown);
 
-                // Quick logic for town wars
+                // Town wars
                 if (war != null && war.attackers == openerTown) {
                     event.setCancelled(false);
+                    logNextBlockPlace.put(event.getPlayer().getUniqueId(), war);
+
                     return;
                 }
 
+                // Nation wars
                 if (openerTown.hasNation() && placeTown.hasNation() &&
                         TownWars.nationCurrentNationWars.containsKey(openerTown.getNation()) &&
                         TownWars.nationCurrentNationWars.containsKey(placeTown.getNation())) {
@@ -105,6 +133,8 @@ public class Events implements Listener {
                         if (TownWars.nationCurrentNationWars.get(placeTown.getNation()).contains(war2)) {
                             // both nations are in a war.
                             event.setCancelled(false);
+                            logNextBlockPlace.put(event.getPlayer().getUniqueId(), war2);
+
                             return;
                         }
                     }
@@ -124,12 +154,13 @@ public class Events implements Listener {
                 Town openerTown = towny.getDataSource().getResident(event.getPlayer().getName()).getTown();
                 War war = TownWars.townsUnderSiege.get(switchTown);
 
-                // Quick logic for town wars
+                // Town wars
                 if (war != null && war.attackers == openerTown) {
                     event.setCancelled(false);
                     return;
                 }
 
+                // Nation wars
                 if (openerTown.hasNation() && switchTown.hasNation() &&
                         TownWars.nationCurrentNationWars.containsKey(openerTown.getNation()) &&
                         TownWars.nationCurrentNationWars.containsKey(switchTown.getNation())) {
@@ -180,7 +211,7 @@ public class Events implements Listener {
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerKill(PlayerDeathEvent event) {
         if (event.getEntity().getKiller() != null) {
             try {
@@ -198,22 +229,18 @@ public class Events implements Listener {
                 // I can't do another about this without preventing people from joining multiple wars at once.
                 // But that itself could allow exploits in stopping people from joining a nation war
                 // by having another nation declare war on their nation.  It's a mess.
-                if (deadPlayerIsDefenderWar != null) {
+                if (deadPlayerIsDefenderWar != null && !deadPlayerIsDefenderWar.isNationWar) {
                     if (deadPlayerIsDefenderWar.attackers == killerTown && deadPlayerIsDefenderWar.defenders == deadPlayerTown) {
                         deadPlayerIsDefenderWar.incrementAttackerKills();
-                    }
-
-                    if (deadPlayerIsDefenderWar.attackers == deadPlayerTown && deadPlayerIsDefenderWar.defenders == killerTown) {
+                    } else if (deadPlayerIsDefenderWar.attackers == deadPlayerTown && deadPlayerIsDefenderWar.defenders == killerTown) {
                         deadPlayerIsDefenderWar.incrementDefenderKills();
                     }
                 }
 
-                if (attackerIsDeadPlayerWar != null) {
+                if (attackerIsDeadPlayerWar != null && !attackerIsDeadPlayerWar.isNationWar) {
                     if (attackerIsDeadPlayerWar.attackers == killerTown && attackerIsDeadPlayerWar.defenders == deadPlayerTown) {
                         attackerIsDeadPlayerWar.incrementAttackerKills();
-                    }
-
-                    if (attackerIsDeadPlayerWar.attackers == deadPlayerTown && attackerIsDeadPlayerWar.defenders == killerTown) {
+                    } else if (attackerIsDeadPlayerWar.attackers == deadPlayerTown && attackerIsDeadPlayerWar.defenders == killerTown) {
                         attackerIsDeadPlayerWar.incrementDefenderKills();
                     }
                 }
@@ -223,9 +250,8 @@ public class Events implements Listener {
                         TownWars.nationCurrentNationWars.containsKey(deadPlayerTown.getNation())) {
                     // Unless the attacker is some random person, both towns SHOULD have a nation
                     for (War war : TownWars.nationCurrentNationWars.get(killerTown.getNation())) {
+                        if (!war.isNationWar) continue;
                         if (TownWars.nationCurrentNationWars.get(deadPlayerTown.getNation()).contains(war)) {
-                            // Fuck this.  Technically killing players can score points twice
-                            // But it's better than the alternative of abusing new wars to stop deaths from counting...
                             if (war.nationsAttacking.contains(killerTown.getNation())) {
                                 war.incrementAttackerKills();
                             }
