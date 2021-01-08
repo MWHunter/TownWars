@@ -4,12 +4,11 @@ conquerIfWithoutNation: true
 costStartNationWar: 1500
 costStartTownWar: 500
 secondBetweenAnnounceTimeLeft: 60
+secondToConfirmAction: 30
 costJoinNationWarAttackers: 500
 costJoinNationWarDefenders: 0
 daysConqueredIfInNation: 7
 daysConqueredIfWithoutNation: 7
-isTimeLimitNationWar: true
-isTimeLimitTownWar: true
 killLimitNationWar: 100
 killLimitTownWar: 20
 minPercentOnline: 0.5
@@ -17,8 +16,8 @@ minPlayersOnline: 2
 minPlayersOnlineBypassPercent: 5
 minSecondsBetweenPeaceRequests: 30
 nationWarBlocksTransferPercent: 0.1
-timeLimitNationWar: 36000
-timeLimitTownWar: 12000
+timeLimitNationWar: 1800
+timeLimitTownWar: 600
 townWarBlocksTransferPercent: 0.1
 allowed-switches-in-war:
   - ACACIA_DOOR

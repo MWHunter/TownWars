@@ -26,10 +26,14 @@ import java.util.UUID;
 
 public class Events implements Listener {
     static HashSet<UUID> cancelNextBlockBreakDrop = new HashSet<>();
-    static HashMap<UUID, War> logNextBlockPlace = new HashMap();
+    static HashMap<UUID, War> logNextBlockPlace = new HashMap<>();
     TownyAPI towny = TownyAPI.getInstance();
 
-    // Towny uses event priority high - THAT IS WRONG TOWNY DEVS!
+    // TODO: Make defender actions also be rolled back?
+    // TODO: Individual configs for allowing placing/breaking containers for attackers/defenders
+    // default off to stop attackers from breaking all the chests that defenders need for defense
+
+    // Towny uses event priority high for some reason
     // Using event priority higher allows us interact with towny's block break event.
     // Make it so players can't dupe by breaking blocks during a war
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -89,6 +93,9 @@ public class Events implements Listener {
         //List<Block> alreadyAllowed = event.getTownyFilteredBlockList();
         for (Block block : event.getVanillaBlockList()) {
             if (!TownWars.townsUnderSiege.containsKey(towny.getTown(block.getLocation()))) continue;
+            // Don't allow blowing up chests, defenders should have access to them!
+            // TODO: Make this a config?
+            if (block.getState() instanceof Container) continue;
 
             count++;
             TownyRegenAPI.beginProtectionRegenTask(block, count, TownyAPI.getInstance().getTownyWorld(block.getLocation().getWorld().getName()));
@@ -191,6 +198,10 @@ public class Events implements Listener {
                 if (war != null && (war.attackers == damagerTown && war.defenders == damagedPlayerTown ||
                         war.defenders == damagerTown && war.attackers == damagedPlayerTown)) {
                     event.setCancelled(false);
+
+                    if (war.attackers == damagedPlayerTown) {
+                        war.lastDamageTakenByAttackersTick.put(event.getEntity().getName(), war.tick);
+                    }
                 }
 
                 if (damagerTown.hasNation() && damagedPlayerTown.hasNation() &&
@@ -201,11 +212,15 @@ public class Events implements Listener {
                         if (TownWars.nationCurrentNationWars.get(damagedPlayerTown.getNation()).contains(war2)) {
                             // both nations are in a war.
                             event.setCancelled(false);
+
+                            if (war2.nationsAttacking.contains(damagedPlayerTown.getNation())) {
+                                war2.lastDamageTakenByAttackersTick.put(event.getEntity().getName(), war2.tick);
+                            }
+
                             return;
                         }
                     }
                 }
-
             } catch (NotRegisteredException ignored) {
             }
         }
@@ -231,17 +246,17 @@ public class Events implements Listener {
                 // by having another nation declare war on their nation.  It's a mess.
                 if (deadPlayerIsDefenderWar != null && !deadPlayerIsDefenderWar.isNationWar) {
                     if (deadPlayerIsDefenderWar.attackers == killerTown && deadPlayerIsDefenderWar.defenders == deadPlayerTown) {
-                        deadPlayerIsDefenderWar.incrementAttackerKills();
+                        deadPlayerIsDefenderWar.attackerIsDead(deadPlayer);
                     } else if (deadPlayerIsDefenderWar.attackers == deadPlayerTown && deadPlayerIsDefenderWar.defenders == killerTown) {
-                        deadPlayerIsDefenderWar.incrementDefenderKills();
+                        deadPlayerIsDefenderWar.defenderHasDied(deadPlayer);
                     }
                 }
 
                 if (attackerIsDeadPlayerWar != null && !attackerIsDeadPlayerWar.isNationWar) {
                     if (attackerIsDeadPlayerWar.attackers == killerTown && attackerIsDeadPlayerWar.defenders == deadPlayerTown) {
-                        attackerIsDeadPlayerWar.incrementAttackerKills();
+                        attackerIsDeadPlayerWar.attackerIsDead(deadPlayer);
                     } else if (attackerIsDeadPlayerWar.attackers == deadPlayerTown && attackerIsDeadPlayerWar.defenders == killerTown) {
-                        attackerIsDeadPlayerWar.incrementDefenderKills();
+                        attackerIsDeadPlayerWar.defenderHasDied(deadPlayer);
                     }
                 }
 
@@ -253,11 +268,11 @@ public class Events implements Listener {
                         if (!war.isNationWar) continue;
                         if (TownWars.nationCurrentNationWars.get(deadPlayerTown.getNation()).contains(war)) {
                             if (war.nationsAttacking.contains(killerTown.getNation())) {
-                                war.incrementAttackerKills();
+                                war.attackerIsDead(deadPlayer);
                             }
 
                             if (war.nationsDefending.contains(killerTown.getNation())) {
-                                war.incrementDefenderKills();
+                                war.defenderHasDied(deadPlayer);
                             }
                         }
                     }

@@ -13,6 +13,12 @@ import java.util.HashSet;
 
 // TODO: Force players to enemy all enemies
 // TODO: Add bstats
+// TODO: Limit wars players can enter
+// TODO: Cooldown after losing a war
+// TODO: Allow breaking chests (don't drop items)
+// TODO: Require some Towny permission for starting a war.
+// TODO: Confirm cost to join wars
+// TODO: Long term, add ability to disable economy part entirely
 public final class TownWars extends JavaPlugin {
     public static HashSet<War> currentWars = new HashSet<>();
     public static HashMap<Town, War> townsUnderSiege = new HashMap<>();
@@ -40,9 +46,8 @@ public final class TownWars extends JavaPlugin {
 
         for (File file : warFolder.listFiles()) {
             try {
-                War war = new War(null, null, false);
-                war.load(file);
-                WarManager.setupWar(war, true);
+                War war = new War(file);
+                WarManager.setupWar(war, false);
             } catch (Exception e) {
                 e.printStackTrace();
             }

@@ -6,4 +6,4 @@ depend: [Towny]
 commands:
   war:
     description: Manage wars
-    usage: /war [declare | end | surrender | help]
+    usage: /war [declare | peace | surrender | help]
