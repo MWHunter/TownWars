@@ -2,10 +2,12 @@ package org.abyssmc.townwars;
 
 import com.palmergames.bukkit.towny.object.Nation;
 import com.palmergames.bukkit.towny.object.Town;
+import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.io.File;
 import java.util.HashMap;
@@ -26,9 +28,12 @@ public final class TownWars extends JavaPlugin {
     public static HashMap<Nation, HashSet<War>> nationCurrentNationWars = new HashMap<>();
     public static HashSet<Material> allowedSwitches = new HashSet<>();
 
+    private static BukkitAudiences adventure;
+
     @Override
     public void onEnable() {
         plugin = this;
+        adventure = BukkitAudiences.create(this);
 
         // Plugin startup logic
         saveDefaultConfig();
@@ -60,6 +65,11 @@ public final class TownWars extends JavaPlugin {
         for (War war : currentWars) {
             war.save(false);
         }
+
+        if (adventure != null) {
+            adventure.close();
+            adventure = null;
+        }
     }
 
     public void tickWars() {
@@ -68,5 +78,12 @@ public final class TownWars extends JavaPlugin {
                 war.tick();
             }
         }, 0, 1);
+    }
+
+    public static @NonNull BukkitAudiences adventure() {
+        if (adventure == null) {
+            throw new IllegalStateException("Tried to access Adventure when the plugin was disabled!");
+        }
+        return adventure;
     }
 }

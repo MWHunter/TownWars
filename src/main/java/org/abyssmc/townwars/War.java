@@ -6,6 +6,9 @@ import com.palmergames.bukkit.towny.object.Nation;
 import com.palmergames.bukkit.towny.object.Resident;
 import com.palmergames.bukkit.towny.object.Town;
 import com.palmergames.compress.utils.FileNameUtils;
+import net.kyori.adventure.bossbar.BossBar;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.data.BlockData;
@@ -23,35 +26,57 @@ public class War {
     public Town defenders;
     public boolean attackerWantsPeace;
     public boolean defenderWantsPeace;
-    public int lastPeaceRequestEpoch = Integer.MIN_VALUE / 2; // don't underflow, just have a small number
+    public int lastPeaceRequestEpoch = Integer.MIN_VALUE / 4; // don't underflow, just have a small number
     public UUID warUUID;
     // Don't remove combat log on login to stop exploits.
-    public HashMap<String, Integer> lastDamageTakenByAttackersTick = new HashMap<>();
+    public int lastDamageTakenByAttackersTick = Integer.MIN_VALUE / 4;
+    public WarState currentState = WarState.PREWAR;
     HashSet<Nation> nationsDefending = new HashSet<>();
     HashSet<Nation> nationsAttacking = new HashSet<>();
     HashMap<Location, BlockData> restoreBlocksAfterWar = new HashMap<>();
-
-    // TODO: FUCK THIS!!1
-    // TODO: WE NEED A HASHMAP BECAUSE EVERY TOWN IN A NATION WAR CAN BE SIEGED!
+    // TODO: WE NEED A HASHMAP HERE BECAUSE EVERY TOWN IN A NATION WAR CAN BE SIEGED!
     int ticksOccupiedWithoutCombat = 0;
     int ticksWithoutAttackersOccupying = 0;
     int tick = 0;
-    int tickIgnoringOccupationStatus = 0;
-    public boolean hasStartedOccupation = false;
+    BossBar warBossBar = net.kyori.adventure.bossbar.BossBar.bossBar(Component.text("secret war bossbar :)"),
+            0, BossBar.Color.PINK, BossBar.Overlay.NOTCHED_10);
+    Town playerIteratorTown;
 
     public War(Town attackers, Town defenders) {
-        if (attackers.isCapital() && defenders.isCapital()) isNationWar = true;
+        //if (attackers.isCapital() && defenders.isCapital()) isNationWar = true;
+        isNationWar = false;
 
         this.warUUID = UUID.randomUUID();
         this.attackers = attackers;
         this.defenders = defenders;
 
         addTownsNationsToList();
+        updateBossBar();
+        sendEveryoneBossBars();
     }
 
     // Allow loading from a saved war
     public War(File file) {
         load(file);
+    }
+
+    public static String formatSeconds(int secondsLeft) {
+        String timeLeftString = "";
+
+        int newSeconds = secondsLeft % 60;
+        int newHours = secondsLeft / 60;
+        int newMinutes = newHours % 60;
+        newHours = newHours / 60;
+
+        if (newHours == 1) timeLeftString += newHours + " hours ";
+        if (newHours > 1) timeLeftString += newHours + " hours ";
+        if (newMinutes == 1) timeLeftString += newMinutes + " minute ";
+        if (newMinutes > 1) timeLeftString += newMinutes + " minutes ";
+        if (newSeconds == 1) timeLeftString += newSeconds + " second";
+        if (newSeconds > 1) timeLeftString += newSeconds + " seconds";
+        if (timeLeftString.endsWith(" ")) timeLeftString = timeLeftString.substring(0, timeLeftString.length() - 1);
+
+        return timeLeftString;
     }
 
     public String setPlaceholders(String string) {
@@ -81,31 +106,17 @@ public class War {
         }
 
         if (string.contains("{TIME_LEFT}")) {
-            int secondsLeft = ConfigHandler.timeLimitNationWar - (tick / 20);
+            int secondsLeft;
+            if (isNationWar) {
+                secondsLeft = (ConfigHandler.tickLimitNationWar - tick) / 20;
+            } else {
+                secondsLeft = (ConfigHandler.tickLimitTownWar - tick) / 20;
+            }
 
             string = string.replace("{TIME_LEFT}", formatSeconds(secondsLeft));
         }
 
         return string.replace("{ATTACKERS}", attackers.getName()).replace("{DEFENDERS}", defenders.getName());
-    }
-
-    public static String formatSeconds(int secondsLeft) {
-        String timeLeftString = "";
-
-        int newSeconds = secondsLeft % 60;
-        int newHours = secondsLeft / 60;
-        int newMinutes = newHours % 60;
-        newHours = newHours / 60;
-
-        if (newHours == 1) timeLeftString += newHours + " hours ";
-        if (newHours > 1) timeLeftString += newHours + " hours ";
-        if (newMinutes == 1) timeLeftString += newMinutes + " minute ";
-        if (newMinutes > 1) timeLeftString += newMinutes + " minutes ";
-        if (newSeconds == 1) timeLeftString += newSeconds + " second";
-        if (newSeconds > 1) timeLeftString += newSeconds + " seconds";
-        if (timeLeftString.endsWith(" ")) timeLeftString = timeLeftString.substring(0, timeLeftString.length() - 1);
-
-        return timeLeftString;
     }
 
     public void load(File warFile) {
@@ -153,6 +164,7 @@ public class War {
         }
 
         WarManager.setupWar(this, false);
+        sendEveryoneBossBars();
     }
 
     // If we are shutting down the server, do it sync to 100% be sure the save finishes
@@ -228,35 +240,14 @@ public class War {
         restoreBlocksAfterWar.put(location, block);
     }
 
-    public void tick() {
-        // save war info every minute, just in case the server crashes
-        // This also saves everything immediately
-        if (tick++ % 1200 == 0) save(true);
-
-        boolean attackersInCombat = false;
-        for (Map.Entry<String, Integer> playerNameIterator : lastDamageTakenByAttackersTick.entrySet()) {
-            if ((tick - playerNameIterator.getValue()) < ConfigHandler.ticksUntilNoLongerInCombat) {
-                attackersInCombat = true;
-                break;
-            }
-        }
-
-        if (!attackersInCombat) {
-            ticksOccupiedWithoutCombat++;
-        }
-
-        // TODO: Probably needs a bit of optimization
-        // TODO: Auto declare war for towns during nation war
-        boolean attackersOccupyingDefenders = false;
+    public boolean isAnAttackerInDefenderLand() {
         if (isNationWar) {
             for (Nation nation : nationsAttacking) {
                 for (Town town : nation.getTowns()) {
                     for (Resident resident : town.getResidents()) {
                         if (resident.getPlayer() == null) continue;
                         if (TownyAPI.getInstance().getTown(resident.getPlayer().getLocation()) == defenders) {
-                            attackersOccupyingDefenders = true;
-                            hasStartedOccupation = true;
-                            break;
+                            return true;
                         }
                     }
                 }
@@ -265,49 +256,91 @@ public class War {
         } else {
             for (Resident resident : attackers.getResidents()) {
                 if (resident.getPlayer() == null) continue;
-                if (TownyAPI.getInstance().getTown(resident.getPlayer().getLocation()) == defenders) {
-                    attackersOccupyingDefenders = true;
-                    hasStartedOccupation = true;
-                    break;
+                playerIteratorTown = TownyAPI.getInstance().getTown(resident.getPlayer().getLocation());
+                if (playerIteratorTown != null && playerIteratorTown == defenders) {
+                    return true;
                 }
             }
         }
+        return false;
+    }
 
-        if (!attackersOccupyingDefenders && hasStartedOccupation) {
-            if (++ticksWithoutAttackersOccupying > ConfigHandler.ticksWithoutAttackersOccupyingUntilDefendersWin) {
+    public void tick() {
+        // save war info every minute, just in case the server crashes
+        // This also saves everything immediately
+        if (tick++ % 1200 == 0) save(true);
+
+        boolean attackersOccupyingDefenders = isAnAttackerInDefenderLand();
+        boolean attackersInCombat = Math.abs(tick - lastDamageTakenByAttackersTick) < ConfigHandler.ticksUntilNoLongerInCombat;
+
+        if (tick > ConfigHandler.ticksBeforeWarBegins) {
+            if (attackersInCombat && attackersOccupyingDefenders) {
+                currentState = WarState.OCCUPIED_IN_COMBAT;
+                ticksWithoutAttackersOccupying = 0;
+
+            } else if (attackersOccupyingDefenders) {
+                currentState = WarState.CAPTURING;
+                ticksWithoutAttackersOccupying = 0;
+                ticksOccupiedWithoutCombat++;
+
+                if (ticksOccupiedWithoutCombat > ConfigHandler.ticksToCaptureTown) {
+                    WarManager.attackersWinWar(this);
+                    return;
+                }
+
+            } else {
+                currentState = WarState.ATTACKERS_MISSING;
+                ticksOccupiedWithoutCombat = 0;
+
+                if (++ticksWithoutAttackersOccupying > ConfigHandler.ticksWithoutAttackersOccupyingUntilDefendersWin) {
+                    WarManager.defendersWinWar(this);
+                    return;
+                }
+
+                if (ticksWithoutAttackersOccupying % ConfigHandler.ticksBetweenNotOccupyingWarning == 0) {
+                    messageAttackers(LocaleReader.NOT_OCCUPYING_WARNING.replace("{SECONDS_NOT_OCCUPIED_UNTIL_FAIL}", formatSeconds((ConfigHandler.ticksWithoutAttackersOccupyingUntilDefendersWin - ticksWithoutAttackersOccupying) / 20)));
+                }
+            }
+
+            if (isNationWar) {
+                if (tick > ConfigHandler.tickLimitNationWar) {
+                    WarManager.defendersWinWar(this);
+                    return;
+                }
+            } else {
+                if (tick > ConfigHandler.tickLimitTownWar) {
+                    WarManager.defendersWinWar(this);
+                    return;
+                }
+            }
+
+            if (!isNationWar && ticksWithoutAttackersOccupying > ConfigHandler.ticksWithoutAttackersOccupyingUntilDefendersWin) {
                 WarManager.defendersWinWar(this);
                 return;
             }
 
-            if (ticksWithoutAttackersOccupying % ConfigHandler.ticksBetweenNotOccupyingWarning == 0) {
-                messageAttackers(LocaleReader.NOT_OCCUPYING_WARNING.replace("{SECONDS_NOT_OCCUPIED_UNTIL_FAIL}", formatSeconds((ConfigHandler.ticksWithoutAttackersOccupyingUntilDefendersWin - ticksWithoutAttackersOccupying) / 20)));
+            // It shouldn't announce when the war is done and when it just starts, so it is last
+            if (tick % (ConfigHandler.secondBetweenAnnounceTimeLeft * 20) == 0) {
+                if (isNationWar) {
+                    messageAll(LocaleReader.NATION_WAR_TIME_LEFT);
+                } else {
+                    messageAll(LocaleReader.TOWN_WAR_TIME_LEFT
+                            .replace("{SECONDS_FOR_ATTACKER_WIN}", formatSeconds((ConfigHandler.ticksToCaptureTown - ticksOccupiedWithoutCombat) / 20)));
+                }
             }
-        } else {
-            ticksWithoutAttackersOccupying = 0;
         }
 
-        if (ticksOccupiedWithoutCombat > ConfigHandler.secondsToCaptureTown * 20) {
-            WarManager.attackersWinWar(this);
-            return;
-        } else if (tick > ConfigHandler.timeLimitTownWar * 20) {
-            WarManager.defendersWinWar(this);
-            return;
-        }
-
-        // It shouldn't announce when the war is done and when it just starts
-        if (tick % (ConfigHandler.secondBetweenAnnounceTimeLeft * 20) == 0) {
-            messageAll(LocaleReader.NATION_WAR_TIME_LEFT);
-        }
+        updateBossBar();
     }
 
     // TODO: This really isn't needed after new system
     // TODO: What do I do?
     public void attackerIsDead(Resident player) {
-        messageAll(LocaleReader.ATTACKERS_SCORED_KILL);
+        ticksOccupiedWithoutCombat = 0;
     }
 
     public void defenderHasDied(Resident player) {
-        messageAll(LocaleReader.DEFENDERS_SCORED_KILL);
+        //
     }
 
     public void messagePlayer(Player player, String message) {
@@ -326,6 +359,107 @@ public class War {
     public void messageAttackers(String message) {
         message = setPlaceholders(message);
         messageAttackersWithoutPlaceholders(message);
+    }
+
+    public void removeEveryoneBossBars() {
+        if (isNationWar) {
+            for (Nation nation : nationsAttacking) {
+                for (Town town : nation.getTowns()) {
+                    for (Resident resident : town.getResidents()) {
+                        if (resident.getPlayer() == null) continue;
+                        TownWars.adventure().player(resident.getPlayer()).hideBossBar(warBossBar);
+                    }
+                }
+            }
+
+            for (Nation nation : nationsDefending) {
+                for (Town town : nation.getTowns()) {
+                    for (Resident resident : town.getResidents()) {
+                        if (resident.getPlayer() == null) continue;
+                        TownWars.adventure().player(resident.getPlayer()).hideBossBar(warBossBar);
+                    }
+                }
+            }
+
+        } else {
+            for (Resident resident : attackers.getResidents()) {
+                if (resident.getPlayer() == null) continue;
+                TownWars.adventure().player(resident.getPlayer()).hideBossBar(warBossBar);
+            }
+
+            for (Resident resident : defenders.getResidents()) {
+                if (resident.getPlayer() == null) continue;
+                TownWars.adventure().player(resident.getPlayer()).hideBossBar(warBossBar);
+            }
+        }
+    }
+
+    public void sendEveryoneBossBars() {
+        if (isNationWar) {
+            for (Nation nation : nationsAttacking) {
+                for (Town town : nation.getTowns()) {
+                    for (Resident resident : town.getResidents()) {
+                        if (resident.getPlayer() == null) continue;
+                        TownWars.adventure().player(resident.getPlayer()).showBossBar(warBossBar);
+                    }
+                }
+            }
+
+            for (Nation nation : nationsDefending) {
+                for (Town town : nation.getTowns()) {
+                    for (Resident resident : town.getResidents()) {
+                        if (resident.getPlayer() == null) continue;
+                        TownWars.adventure().player(resident.getPlayer()).showBossBar(warBossBar);
+                    }
+                }
+            }
+
+        } else {
+            for (Resident resident : attackers.getResidents()) {
+                if (resident.getPlayer() == null) continue;
+                TownWars.adventure().player(resident.getPlayer()).showBossBar(warBossBar);
+            }
+
+            for (Resident resident : defenders.getResidents()) {
+                if (resident.getPlayer() == null) continue;
+                TownWars.adventure().player(resident.getPlayer()).showBossBar(warBossBar);
+            }
+        }
+    }
+
+    public void updateBossBar() {
+        // TODO: How to do this with nation wars?
+        // I prefer sending time left in chat so more valuable info isn't lost.
+        /*if (ticksShowingBossBar > 0 || tick % (ConfigHandler.secondsBetweenShowTimeBossBar * 20) == 0) {
+            if (++ticksShowingBossBar > ConfigHandler.secondsToShowTimeBossBar * 20) ticksShowingBossBar = 0;
+
+            warBossBar.color(BossBar.Color.BLUE);
+            warBossBar.name(Component.text().color(TextColor.color(0x51f5e7)).append(Component.text(formatSeconds(ConfigHandler.timeLimitTownWar - tick / 20)).append(Component.text(" remaining"))));
+            warBossBar.progress(Math.max(0, Math.min(1, 1 - (float) ticksWithoutAttackersOccupying / ConfigHandler.ticksWithoutAttackersOccupyingUntilDefendersWin)));
+        } else {*/
+        switch (currentState) {
+            case CAPTURING:
+                warBossBar.color(BossBar.Color.GREEN);
+                warBossBar.name(Component.text().color(TextColor.color(0x34eb49)).append(Component.text("Capture in progress")));
+                warBossBar.progress(Math.max(0, Math.min(1, (float) ticksOccupiedWithoutCombat / ConfigHandler.ticksToCaptureTown)));
+                break;
+            case OCCUPIED_IN_COMBAT:
+                warBossBar.color(BossBar.Color.YELLOW);
+                warBossBar.name(Component.text().color(TextColor.color(0xf7f719)).append(Component.text("Attackers in combat")));
+                warBossBar.progress(Math.max(0, Math.min(1, 1 - (float) Math.abs(tick - lastDamageTakenByAttackersTick) / ConfigHandler.ticksUntilNoLongerInCombat)));
+                break;
+            case ATTACKERS_MISSING:
+                warBossBar.color(BossBar.Color.RED);
+                warBossBar.name(Component.text().color(TextColor.color(0xe01010)).append(Component.text("Attackers absent")));
+                warBossBar.progress(Math.max(0, Math.min(1, 1 - (float) ticksWithoutAttackersOccupying / ConfigHandler.ticksWithoutAttackersOccupyingUntilDefendersWin)));
+                break;
+            case PREWAR:
+                // TODO: Progress bar for this
+                warBossBar.color(BossBar.Color.WHITE);
+                warBossBar.name(Component.text().color(TextColor.color(0xe01010)).append(Component.text("War declared")));
+                warBossBar.progress(Math.max(0, Math.min(1, 1 - (float) tick / ConfigHandler.ticksBeforeWarBegins)));
+                break;
+        }
     }
 
     public void messageAttackersWithoutPlaceholders(String message) {
@@ -420,5 +554,12 @@ public class War {
             exception.printStackTrace();
             return null;
         }
+    }
+
+    public enum WarState {
+        PREWAR,
+        OCCUPIED_IN_COMBAT,
+        CAPTURING,
+        ATTACKERS_MISSING
     }
 }

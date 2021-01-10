@@ -7,3 +7,8 @@ commands:
   war:
     description: Manage wars
     usage: /war [declare | peace | surrender | help]
+    permission: townwars.use
+permissions:
+  townwars.use:
+    description: required for all plugin commands
+    default: true

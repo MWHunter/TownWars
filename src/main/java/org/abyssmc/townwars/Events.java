@@ -9,6 +9,7 @@ import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
 import com.palmergames.bukkit.towny.object.Resident;
 import com.palmergames.bukkit.towny.object.Town;
 import com.palmergames.bukkit.towny.regen.TownyRegenAPI;
+import org.bukkit.Bukkit;
 import org.bukkit.block.Block;
 import org.bukkit.block.Container;
 import org.bukkit.entity.Player;
@@ -19,6 +20,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -46,19 +48,22 @@ public class Events implements Listener {
 
     @EventHandler
     public void onBlockBreakEvent(TownyDestroyEvent event) {
-        if (!event.isCancelled()) return;
+        //if (!event.isCancelled()) return;
         try {
+            if (event.getTownBlock() == null) return;
             Town destroyTown = event.getTownBlock().getTown();
             if (TownWars.townsUnderSiege.containsKey(destroyTown)) {
-                Town openerTown = towny.getDataSource().getResident(event.getPlayer().getName()).getTown();
+                Town breakerTown = towny.getDataSource().getResident(event.getPlayer().getName()).getTown();
                 War war = TownWars.townsUnderSiege.get(destroyTown);
 
                 // Saving container data is a mess in spigot.  It relies on NMS.
                 // I doubt players will build walls with furnaces to stop attackers
+                // nvm, they probably will
+                // TODO: Fix this before players start building walls with furnaces to keep attackers out
                 if (event.getBlock().getState() instanceof Container) return;
 
-                // Quick logic for town wars
-                if (war != null && war.attackers == openerTown) {
+                if (war != null && war.currentState != War.WarState.PREWAR && (war.attackers == breakerTown ||
+                        war.defenders == breakerTown)) {
                     event.setCancelled(false);
                     cancelNextBlockBreakDrop.add(event.getPlayer().getUniqueId());
                     war.restoreBlock(event.getBlock().getLocation(), event.getBlock().getBlockData());
@@ -66,12 +71,13 @@ public class Events implements Listener {
                     return;
                 }
 
-                if (openerTown.hasNation() && destroyTown.hasNation() &&
-                        TownWars.nationCurrentNationWars.containsKey(openerTown.getNation()) &&
+                if (breakerTown.hasNation() && destroyTown.hasNation() &&
+                        TownWars.nationCurrentNationWars.containsKey(breakerTown.getNation()) &&
                         TownWars.nationCurrentNationWars.containsKey(destroyTown.getNation())) {
                     // Unless the attacker is some random person, both towns SHOULD have a nation
-                    for (War war2 : TownWars.nationCurrentNationWars.get(openerTown.getNation())) {
-                        if (TownWars.nationCurrentNationWars.get(destroyTown.getNation()).contains(war2)) {
+                    for (War war2 : TownWars.nationCurrentNationWars.get(breakerTown.getNation())) {
+                        if (war2.currentState != War.WarState.PREWAR &&
+                                TownWars.nationCurrentNationWars.get(destroyTown.getNation()).contains(war2)) {
                             // both nations are in a war.
                             event.setCancelled(false);
                             cancelNextBlockBreakDrop.add(event.getPlayer().getUniqueId());
@@ -94,7 +100,7 @@ public class Events implements Listener {
         for (Block block : event.getVanillaBlockList()) {
             if (!TownWars.townsUnderSiege.containsKey(towny.getTown(block.getLocation()))) continue;
             // Don't allow blowing up chests, defenders should have access to them!
-            // TODO: Make this a config?
+            // TODO: Make this a config
             if (block.getState() instanceof Container) continue;
 
             count++;
@@ -116,15 +122,18 @@ public class Events implements Listener {
 
     @EventHandler
     public void onBlockPlaceEvent(TownyBuildEvent event) {
-        if (!event.isCancelled()) return;
         try {
+            if (event.getTownBlock() == null) return;
             Town placeTown = event.getTownBlock().getTown();
             if (TownWars.townsUnderSiege.containsKey(placeTown)) {
                 Town openerTown = towny.getDataSource().getResident(event.getPlayer().getName()).getTown();
                 War war = TownWars.townsUnderSiege.get(placeTown);
 
                 // Town wars
-                if (war != null && war.attackers == openerTown) {
+                if (war != null && war.currentState != War.WarState.PREWAR && (war.attackers == openerTown
+                        || war.defenders == openerTown)) {
+                    if (event.getBlock().isLiquid() || event.getBlock().getState() instanceof Container) return;
+
                     event.setCancelled(false);
                     logNextBlockPlace.put(event.getPlayer().getUniqueId(), war);
 
@@ -137,8 +146,12 @@ public class Events implements Listener {
                         TownWars.nationCurrentNationWars.containsKey(placeTown.getNation())) {
                     // Unless the attacker is some random person, both towns SHOULD have a nation
                     for (War war2 : TownWars.nationCurrentNationWars.get(openerTown.getNation())) {
-                        if (TownWars.nationCurrentNationWars.get(placeTown.getNation()).contains(war2)) {
+                        if (war2.currentState != War.WarState.PREWAR &&
+                                TownWars.nationCurrentNationWars.get(placeTown.getNation()).contains(war2)) {
                             // both nations are in a war.
+                            // TODO: Make this a config
+                            if (event.getBlock().isLiquid() || event.getBlock().getState() instanceof Container) return;
+
                             event.setCancelled(false);
                             logNextBlockPlace.put(event.getPlayer().getUniqueId(), war2);
 
@@ -151,10 +164,10 @@ public class Events implements Listener {
         }
     }
 
-
     @EventHandler
     public void onSwitchUse(TownySwitchEvent event) {
         if (!event.isCancelled()) return;
+        if (event.getTownBlock() == null) return;
         try {
             Town switchTown = event.getTownBlock().getTown();
             if (TownWars.townsUnderSiege.containsKey(switchTown) && TownWars.allowedSwitches.contains(event.getBlock().getType())) {
@@ -162,7 +175,7 @@ public class Events implements Listener {
                 War war = TownWars.townsUnderSiege.get(switchTown);
 
                 // Town wars
-                if (war != null && war.attackers == openerTown) {
+                if (war != null && war.attackers == openerTown && war.currentState != War.WarState.PREWAR) {
                     event.setCancelled(false);
                     return;
                 }
@@ -173,7 +186,8 @@ public class Events implements Listener {
                         TownWars.nationCurrentNationWars.containsKey(switchTown.getNation())) {
                     // Unless the attacker is some random person, both towns SHOULD have a nation
                     for (War war2 : TownWars.nationCurrentNationWars.get(openerTown.getNation())) {
-                        if (TownWars.nationCurrentNationWars.get(switchTown.getNation()).contains(war2)) {
+                        if (war2.currentState != War.WarState.PREWAR &&
+                                TownWars.nationCurrentNationWars.get(switchTown.getNation()).contains(war2)) {
                             // both nations are in a war.
                             event.setCancelled(false);
                             return;
@@ -185,7 +199,8 @@ public class Events implements Listener {
         }
     }
 
-    @EventHandler
+    // Use highest to override towny...
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerDamagePlayerEvent(EntityDamageByEntityEvent event) {
         if (event.getDamager() instanceof Player && event.getEntity() instanceof Player) {
             try {
@@ -193,15 +208,22 @@ public class Events implements Listener {
                 Town damagerTown = towny.getDataSource().getResident(event.getDamager().getName()).getTown();
 
                 // This is the most likely case, nation wars are rare
-                War war = TownWars.townsUnderSiege.get(damagedPlayerTown);
+                War warDefenderDamaged = TownWars.townsUnderSiege.get(damagedPlayerTown);
+                War warAttackerDamaged = TownWars.townsUnderSiege.get(damagerTown);
 
-                if (war != null && (war.attackers == damagerTown && war.defenders == damagedPlayerTown ||
-                        war.defenders == damagerTown && war.attackers == damagedPlayerTown)) {
+                // war attacker damaged
+                if (warAttackerDamaged != null && warAttackerDamaged.currentState != War.WarState.PREWAR &&
+                        warAttackerDamaged.defenders == damagerTown) {
                     event.setCancelled(false);
+                    warAttackerDamaged.lastDamageTakenByAttackersTick = warAttackerDamaged.tick;
+                    return;
+                }
 
-                    if (war.attackers == damagedPlayerTown) {
-                        war.lastDamageTakenByAttackersTick.put(event.getEntity().getName(), war.tick);
-                    }
+                // war defender damaged
+                if (warDefenderDamaged != null && warDefenderDamaged.currentState != War.WarState.PREWAR
+                        && warDefenderDamaged.attackers == damagerTown) {
+                    event.setCancelled(false);
+                    return;
                 }
 
                 if (damagerTown.hasNation() && damagedPlayerTown.hasNation() &&
@@ -209,12 +231,14 @@ public class Events implements Listener {
                         TownWars.nationCurrentNationWars.containsKey(damagedPlayerTown.getNation())) {
                     // Unless the attacker is some random person, both towns SHOULD have a nation
                     for (War war2 : TownWars.nationCurrentNationWars.get(damagerTown.getNation())) {
-                        if (TownWars.nationCurrentNationWars.get(damagedPlayerTown.getNation()).contains(war2)) {
+                        if (war2.currentState != War.WarState.PREWAR &&
+                                TownWars.nationCurrentNationWars.get(damagedPlayerTown.getNation()).contains(war2)) {
+
                             // both nations are in a war.
                             event.setCancelled(false);
 
                             if (war2.nationsAttacking.contains(damagedPlayerTown.getNation())) {
-                                war2.lastDamageTakenByAttackersTick.put(event.getEntity().getName(), war2.tick);
+                                war2.lastDamageTakenByAttackersTick = war2.tick;
                             }
 
                             return;
@@ -224,6 +248,7 @@ public class Events implements Listener {
             } catch (NotRegisteredException ignored) {
             }
         }
+
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -279,6 +304,16 @@ public class Events implements Listener {
                 }
             } catch (NotRegisteredException e) {
                 e.printStackTrace();
+            }
+        }
+    }
+
+    // Give players bossbars if they need it
+    @EventHandler
+    public void playerJoinEvent(PlayerJoinEvent event) {
+        for (War war : TownWars.currentWars) {
+            if (WarManager.isPartOfWar(event.getPlayer(), war)) {
+                TownWars.adventure().player(event.getPlayer()).showBossBar(war.warBossBar);
             }
         }
     }

@@ -8,13 +8,13 @@ import java.util.HashSet;
 import static org.abyssmc.townwars.TownWars.allowedSwitches;
 
 public class ConfigHandler {
+    // TODO: These settings are messed up in the configs and getters.
     // General settings
     public static double minPercentOnline = 0.5;
-    public static double minPlayersOnline = 2;
+    public static double minPlayersOnline = 1;
     public static double minPlayersOnlineBypassPercent = 4;
     public static boolean conquerIfWithoutNation = true;
     public static boolean conquerIfInNation = true;
-    public static boolean capitalsCanBeConquered = false;
     public static double costStartTownWar = 500;
     public static double costStartNationWar = 1500;
     public static double costJoinNationWarAttackers = 500;
@@ -28,12 +28,13 @@ public class ConfigHandler {
     public static double townWarBlocksTransferPercent = 0.1;
 
     // How to win the war
-    public static int timeLimitTownWar = 900;
-    public static int timeLimitNationWar = 1800;
-    public static int secondsToCaptureTown = 180; // TODO: Change back
+    public static int tickLimitTownWar = 18000;
+    public static int tickLimitNationWar = 36000;
+    public static int ticksToCaptureTown = 1200;
     public static int ticksUntilNoLongerInCombat = 300;
     public static int ticksWithoutAttackersOccupyingUntilDefendersWin = 400;
-    public static int ticksBetweenNotOccupyingWarning = 80;
+    public static int ticksBetweenNotOccupyingWarning = 100;
+    public static int ticksBeforeWarBegins = 1200;
     public static TownWars plugin;
     public static FileConfiguration config;
 
@@ -41,11 +42,10 @@ public class ConfigHandler {
         addMaterials();
 
         minPercentOnline = config.getDouble("minPercentOnline", 0.5);
-        minPlayersOnline = config.getInt("minPlayersOnline", 2);
-        minPlayersOnlineBypassPercent = config.getDouble("minPlayersOnlineBypassPercent", 5);
+        minPlayersOnline = config.getInt("minPlayersOnline", 1);
+        minPlayersOnlineBypassPercent = config.getInt("minPlayersOnlineBypassPercent", 4);
         conquerIfWithoutNation = config.getBoolean("conquerIfWithoutNation", true);
         conquerIfInNation = config.getBoolean("conquerIfInNation", true);
-        capitalsCanBeConquered = config.getBoolean("capitalsCanBeConquered", false);
         costStartTownWar = config.getDouble("costStartTownWar", 500);
         costStartNationWar = config.getDouble("costStartNationWar", 1500);
         costJoinNationWarAttackers = config.getDouble("costJoinNationWarAttackers", 500);
@@ -55,13 +55,17 @@ public class ConfigHandler {
         minSecondsBetweenPeaceRequests = config.getInt("minSecondsBetweenPeaceRequests", 30);
         daysConqueredIfWithoutNation = config.getInt("daysConqueredIfWithoutNation", 7);
         daysConqueredIfInNation = config.getInt("daysConqueredIfInNation", 7);
-        nationWarBlocksTransferPercent = config.getDouble("nationWarBlocksTransferPercent", 0.1);
+        nationWarBlocksTransferPercent = config.getDouble("nationWarBlocksTransferEvent", 0.1);
         townWarBlocksTransferPercent = config.getDouble("townWarBlocksTransferPercent", 0.1);
 
-        timeLimitTownWar = config.getInt("timeLimitTownWar", 900);
-        timeLimitNationWar = config.getInt("timeLimitNationWar", 2700);
-        secondsToCaptureTown = config.getInt("secondsToCaptureTown", 180);
+        // How to win the war
+        tickLimitTownWar = config.getInt("tickLimitTownWar", 18000);
+        tickLimitNationWar = config.getInt("tickLimitNationWar", 36000);
+        ticksToCaptureTown = config.getInt("ticksToCaptureTown", 1200);
         ticksUntilNoLongerInCombat = config.getInt("ticksUntilNoLongerInCombat", 300);
+        ticksWithoutAttackersOccupyingUntilDefendersWin = config.getInt("ticksWithoutAttackersOccupyingUntilDefendersWin", 400);
+        ticksBetweenNotOccupyingWarning = config.getInt("ticksBetweenNotOccupyingWarning", 100);
+        ticksBeforeWarBegins = config.getInt("ticksBeforeWarBegins", 1200);
     }
 
     public static void addMaterials() {

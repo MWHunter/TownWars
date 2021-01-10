@@ -43,7 +43,8 @@ public class WarManager {
                     return;
                 }
 
-                boolean isNationWar = targetTown.isCapital() && playerTown.isCapital();
+                //boolean isNationWar = targetTown.isCapital() && playerTown.isCapital();
+                boolean isNationWar = false;
 
                 try {
                     if (isNationWar) {
@@ -154,8 +155,42 @@ public class WarManager {
         }
     }
 
+    public static boolean isPartOfWar(Player player, War war) {
+        if (war.isNationWar) {
+            for (Nation nation : war.nationsAttacking) {
+                for (Town town : nation.getTowns()) {
+                    for (Resident resident : nation.getResidents()) {
+                        if (resident.getUUID().equals(player.getUniqueId())) {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            for (Nation nation : war.nationsDefending) {
+                for (Town town : nation.getTowns()) {
+                    for (Resident resident : nation.getResidents()) {
+                        if (resident.getUUID().equals(player.getUniqueId())) return true;
+                    }
+                }
+            }
+
+        } else {
+            for (Resident resident : war.attackers.getResidents()) {
+                if (resident.getUUID().equals(player.getUniqueId())) return true;
+            }
+
+            for (Resident resident : war.defenders.getResidents()) {
+                if (resident.getUUID().equals(player.getUniqueId())) return true;
+            }
+
+        }
+        return false;
+    }
+
     public static boolean checkCanCreateWar(Town attackers, Town defenders, Player player) {
-        boolean isNationWar = attackers.isCapital() && defenders.isCapital();
+        //boolean isNationWar = attackers.isCapital() && defenders.isCapital();
+        boolean isNationWar = false;
 
         if (defenders == null) {
             LocaleReader.send(player, LocaleReader.COMMAND_TOWN_NOT_FOUND);
@@ -170,10 +205,10 @@ public class WarManager {
         if (attackers.hasNation() && defenders.hasNation()) {
             if (!checkCanCreateNationWar(WarUtility.getNation(attackers), WarUtility.getNation(defenders), player)) return false;
 
-            if (!attackers.isCapital() && defenders.isCapital()) {
+            /*if (!attackers.isCapital() && defenders.isCapital()) {
                 LocaleReader.send(player, LocaleReader.COMMAND_ONLY_CAPITAL_CAN_ATTACK_CAPITAL);
                 return false;
-            }
+            }*/
         }
 
         if (attackers.isAlliedWith(defenders)) {
@@ -252,7 +287,8 @@ public class WarManager {
     public static void setupWar(War war, boolean sendMessages) {
         Town attackers = war.attackers;
         Town defenders = war.defenders;
-        boolean isNationWar = attackers.isCapital() && defenders.isCapital();
+        //boolean isNationWar = attackers.isCapital() && defenders.isCapital();
+        boolean isNationWar = false;
         war.isNationWar = isNationWar;
 
         TownWars.currentWars.add(war);
@@ -555,6 +591,8 @@ public class WarManager {
 
         // and finally, delete the saved war file
         war.delete();
+
+        war.removeEveryoneBossBars();
 
         // This is the most likely to error, so try to restore the blocks
         for (Map.Entry<Location, BlockData> blockEntry : war.restoreBlocksAfterWar.entrySet()) {
