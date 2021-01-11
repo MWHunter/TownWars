@@ -1,11 +1,14 @@
 package org.abyssmc.townwars;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
+import java.util.Objects;
 
 // Class heavily inspired by LandClaims
 // https://github.com/pl3xgaming/LandClaims/blob/master/src/main/java/net/pl3x/bukkit/claims/configuration/Lang.java
@@ -99,6 +102,16 @@ public class LocaleReader {
     public static String WAR_LIST_HEADER;
     public static String WITHDRAW_ERROR;
 
+    public static Component ATTACKING_BOSS_BAR_CAPTURING_MESSAGE;
+    public static Component DEFENDING_BOSS_BAR_CAPTURING_MESSAGE;
+    public static Component ATTACKING_BOSS_BAR_OCCUPIED_IN_COMBAT_MESSAGE;
+    public static Component DEFENDING_BOSS_BAR_OCCUPIED_IN_COMBAT_MESSAGE;
+    public static Component ATTACKING_BOSS_BAR_ATTACKERS_MISSING_MESSAGE;
+    public static Component DEFENDING_BOSS_BAR_ATTACKERS_MISSING_MESSAGE;
+    public static Component ATTACKING_BOSS_BAR_PREWAR_MESSAGE;
+    public static Component DEFENDING_BOSS_BAR_PREWAR_MESSAGE;
+
+
     public static void reload() {
         String langFile = "lang-en.txt";
         File configFile = new File(TownWars.plugin.getDataFolder(), langFile);
@@ -118,8 +131,8 @@ public class LocaleReader {
         ATTACKERS_YOU_TIED_TOWN_WAR = config.getString("attackers-you-tied-town-war", "&bYou drew the war against &f{DEFENDERS}&b");
         ATTACKERS_YOU_LOST_NATION_WAR = config.getString("attackers-you-lost-nation-war", "&bYou failed to siege &f{NATION_DEFENDERS}&b");
         ATTACKERS_YOU_LOST_TOWN_WAR = config.getString("attackers-you-lost-town-war", "&bYou failed to siege &f{DEFENDERS}&b");
-        ATTACKERS_YOU_WON_NATION_WAR = config.getString("attackers-you-won-nation-war", "&bYou won &f{CLAIMS} claims&b for winning the nation war against &f{NATION_DEFENDER}&b");
-        ATTACKERS_YOU_WON_TOWN_WAR = config.getString("attackers-you-won-town-war", "&bYou won &f{CLAIMS} claims&b for winning the war against &f{DEFENDERS}&b");
+        ATTACKERS_YOU_WON_NATION_WAR = config.getString("attackers-you-won-nation-war", "&bYou won &f{CLAIMS} claims&b and have been refunded &a$&f{COST} for winning the nation war against &f{NATION_DEFENDER}&b");
+        ATTACKERS_YOU_WON_TOWN_WAR = config.getString("attackers-you-won-town-war", "&bYou won &f{CLAIMS} claims&b and have been refunded &a$&f{COST} for winning the war against &f{DEFENDERS}&b");
         ATTACKING_NATIONS_YOU_LOST_NATION_WAR = config.getString("attacking-nations-you-lost-nation-war", "&bYou lost the war helping &f{ATTACKERS}&b siege &f{DEFENDERS}&b");
         ATTACKING_NATIONS_YOU_WON_NATION_WAR = config.getString("attacking-nations-you-won-nation-war", "&bYou won &f{CLAIMS} claims&b for helping &f{NATION_ATTACKER}&b win the nation war against &f{NATION_DEFENDER}&b");
         CANNOT_PLACE_BLOCKS_ON_HOME_BLOCK = config.getString("cannot-place-blocks-on-home-block", "&cYou cannot place blocks on the home block");
@@ -196,6 +209,15 @@ public class LocaleReader {
         DEFENDING_NATION_WANTS_PEACE = config.getString("defending-nation-wants-peace", "&b{NATION_DEFENDER} want peace");
         ATTACKING_TOWN_WARTS_PEACE = config.getString("attacking-town-wants-peace", "&b{ATTACKERS} want peace");
         DEFENDING_TOWN_WANTS_PEACE = config.getString("defending-town-wants-peace", "&b{DEFENDERS} want peace");
+
+        ATTACKING_BOSS_BAR_CAPTURING_MESSAGE = LegacyComponentSerializer.legacyAmpersand().deserialize(Objects.requireNonNull(config.getString("attacking-boss-bar-capturing-message", "Capture in Progress")));
+        DEFENDING_BOSS_BAR_CAPTURING_MESSAGE = LegacyComponentSerializer.legacyAmpersand().deserialize(Objects.requireNonNull(config.getString("defending-boss-bar-capturing-message", "Capture in Progress")));
+        ATTACKING_BOSS_BAR_OCCUPIED_IN_COMBAT_MESSAGE = LegacyComponentSerializer.legacyAmpersand().deserialize(Objects.requireNonNull(config.getString("attacking-boss-bar-occupied-in-combat-message", "Attackers in Combat")));
+        DEFENDING_BOSS_BAR_OCCUPIED_IN_COMBAT_MESSAGE = LegacyComponentSerializer.legacyAmpersand().deserialize(Objects.requireNonNull(config.getString("defending-boss-bar-occupied-in-combat-message", "Attackers in Combat")));
+        ATTACKING_BOSS_BAR_ATTACKERS_MISSING_MESSAGE = LegacyComponentSerializer.legacyAmpersand().deserialize(Objects.requireNonNull(config.getString("attacking-boss-bar-attackers-missing-message", "Attackers Absent")));
+        DEFENDING_BOSS_BAR_ATTACKERS_MISSING_MESSAGE = LegacyComponentSerializer.legacyAmpersand().deserialize(Objects.requireNonNull(config.getString("defending-boss-bar-attackers-missing-message", "Attackers Absent")));
+        ATTACKING_BOSS_BAR_PREWAR_MESSAGE = LegacyComponentSerializer.legacyAmpersand().deserialize(Objects.requireNonNull(config.getString("attacking-boss-bar-prewar-message", "Countdown to War")));
+        DEFENDING_BOSS_BAR_PREWAR_MESSAGE = LegacyComponentSerializer.legacyAmpersand().deserialize(Objects.requireNonNull(config.getString("defending-boss-bar-prewar-message", "Countdown to War")));
     }
 
     public static void send(CommandSender recipient, String message) {

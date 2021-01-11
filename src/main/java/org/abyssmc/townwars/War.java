@@ -9,9 +9,7 @@ import com.palmergames.compress.utils.FileNameUtils;
 import com.palmergames.paperlib.PaperLib;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
-import org.bukkit.block.Container;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
@@ -41,10 +39,11 @@ public class War {
     int ticksWithoutAttackersOccupying = 0;
     int tick = 0;
 
+    // TODO: Cleanup code by using this list instead of iterating upon loops and loops
     HashSet<Player> attackingPlayers = new HashSet<>();
     HashSet<Player> defendingPlayers = new HashSet<>();
 
-    BossBar warBossbar = new BossBar(this);
+    TownWarBossBar warBossbar = new TownWarBossBar(this);
 
     Town playerIteratorTown;
     // TODO: There has to be a better way
@@ -101,6 +100,11 @@ public class War {
                 }
 
                 if (ticksWithoutAttackersOccupying % ConfigHandler.ticksBetweenNotOccupyingWarning == 0) {
+                    if (ConfigHandler.ticksWithoutAttackersOccupyingUntilDefendersWin - ticksWithoutAttackersOccupying < 20) {
+                        // It gets rounded down and that's not good.
+                        return;
+                    }
+
                     messageAttackers(LocaleReader.NOT_OCCUPYING_WARNING.replace("{SECONDS_NOT_OCCUPIED_UNTIL_FAIL}", WarManager.formatSeconds((ConfigHandler.ticksWithoutAttackersOccupyingUntilDefendersWin - ticksWithoutAttackersOccupying) / 20)));
                 }
             }
@@ -136,19 +140,15 @@ public class War {
         warBossbar.updateBossBar();
 
         // Most likely to error, so do this last
-        // TODO: Complete containers
         if (blocksToRestore.containsKey(tick)) {
             for (Map.Entry<Location, BlockState> key : blocksToRestore.get(tick).entrySet()) {
-                PaperLib.getChunkAtAsync(key.getKey()).thenAccept(chunk -> {
-                    Block targetBlock = chunk.getBlock(key.getKey().getBlockX(), key.getKey().getBlockY(), key.getKey().getBlockZ());
-                    targetBlock.setBlockData(key.getValue().getBlockData());
-                    if (targetBlock.getState() instanceof Container) {
-                        Container targetContainer = (Container) targetBlock;
-                        ((Container) targetBlock).getInventory().getContents();
-                    }
-                });
+                // Getting blocks is x [0 : 15] y [0 : 255] z [0 : 15]
+                // 1.17 negative y coordinates will be painful, but it works for now...
+                PaperLib.getChunkAtAsync(key.getKey()).thenAccept(chunk -> chunk.getBlock(key.getKey().getBlockX() & 0xF, key.getKey().getBlockY() & 0xFF, key.getKey().getBlockZ() & 0xF).setBlockData(key.getValue().getBlockData()));
             }
         }
+
+        blocksToRestore.remove(tick);
     }
 
     public String setPlaceholders(String string) {
@@ -267,7 +267,11 @@ public class War {
     }
 
     public void restoreBlockPlaced(Location location, BlockState block) {
-        int restoreTick = ConfigHandler.ticksToRemovePlacedBlocks;
+        int restoreTick = tick + ConfigHandler.ticksToRemovePlacedBlocks;
+
+        for (Map.Entry<Integer, HashMap<Location, BlockState>> tick : blocksToRestore.entrySet()) {
+            if (tick.getValue().containsKey(location)) return;
+        }
 
         if (!blocksToRestore.containsKey(restoreTick)) {
             blocksToRestore.put(restoreTick, new HashMap<>());
@@ -277,7 +281,11 @@ public class War {
     }
 
     public void restoreBlockBroken(Location location, BlockState block) {
-        int restoreTick = ConfigHandler.ticksToRestoreBrokenBlocks;
+        int restoreTick = tick + ConfigHandler.ticksToRestoreBrokenBlocks;
+
+        for (Map.Entry<Integer, HashMap<Location, BlockState>> tick : blocksToRestore.entrySet()) {
+            if (tick.getValue().containsKey(location)) return;
+        }
 
         if (!blocksToRestore.containsKey(restoreTick)) {
             blocksToRestore.put(restoreTick, new HashMap<>());
@@ -382,6 +390,7 @@ public class War {
     }
 
     public void messageAttackingAllies(String message) {
+        message = setPlaceholders(message);
         for (Nation nation : nationsAttacking) {
             for (Town town : nation.getTowns()) {
                 if (town == attackers) continue;
@@ -395,6 +404,7 @@ public class War {
     }
 
     public void messageDefendingAllies(String message) {
+        message = setPlaceholders(message);
         for (Nation nation : nationsAttacking) {
             for (Town town : nation.getTowns()) {
                 if (town == attackers) continue;

@@ -86,3 +86,12 @@ war-list-format-nation: "&bAttackers: &f{NATION_ATTACKERS}&b &bDefenders: &f{NAT
 war-list-format-town: "&bAttackers: &f{ATTACKERS}&b &bDefenders: &f{DEFENDERS} &bTime left: &f{TIME_LEFT}"
 war-list-header: "&bWar list"
 withdraw-error: "&cAn error occurred while withdrawing funds"
+
+attacking-boss-bar-capturing-message: "Capture in Progress"
+defending-boss-bar-capturing-message: "Capture in Progress"
+attacking-boss-bar-occupied-in-combat-message: "Attackers in Combat"
+defending-boss-bar-occupied-in-combat-message: "Attackers in Combat"
+attacking-boss-bar-attackers-missing-message: "Attackers Absent"
+defending-boss-bar-attackers-missing-message: "Attackers Absent"
+attacking-boss-bar-prewar-message: "Countdown to War"
+defending-boss-bar-prewar-message: "Countdown to War"

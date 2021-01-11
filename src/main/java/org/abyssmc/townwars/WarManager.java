@@ -7,8 +7,9 @@ import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
 import com.palmergames.bukkit.towny.object.Nation;
 import com.palmergames.bukkit.towny.object.Resident;
 import com.palmergames.bukkit.towny.object.Town;
+import com.palmergames.paperlib.PaperLib;
 import org.bukkit.Location;
-import org.bukkit.block.data.BlockData;
+import org.bukkit.block.BlockState;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
@@ -203,7 +204,8 @@ public class WarManager {
         }
 
         if (attackers.hasNation() && defenders.hasNation()) {
-            if (!checkCanCreateNationWar(WarUtility.getNation(attackers), WarUtility.getNation(defenders), player)) return false;
+            if (!checkCanCreateNationWar(WarUtility.getNation(attackers), WarUtility.getNation(defenders), player))
+                return false;
 
             /*if (!attackers.isCapital() && defenders.isCapital()) {
                 LocaleReader.send(player, LocaleReader.COMMAND_ONLY_CAPITAL_CAN_ATTACK_CAPITAL);
@@ -529,31 +531,20 @@ public class WarManager {
                 war.attackers.setBonusBlocks(war.attackers.getBonusBlocks() + remainingBlocks);
 
                 war.messageAttackers(LocaleReader.ATTACKERS_YOU_WON_NATION_WAR
-                        .replace("{CLAIMS}", String.valueOf(remainingBlocks + baseBlocksPerAttacker)));
+                        .replace("{CLAIMS}", String.valueOf(remainingBlocks + baseBlocksPerAttacker))
+                        .replace("{COST}", String.valueOf(ConfigHandler.costStartTownWar)));
 
                 // Attacking nation gets the blocks that were lost by rounding.
-                for (Nation nation : war.nationsAttacking) {
-                    for (Town town : nation.getTowns()) {
-                        town.setBonusBlocks(town.getBonusBlocks() + baseBlocksPerAttacker);
-                        if (town == war.attackers) continue;
-
-                        sendMessageToTown(town, LocaleReader.ATTACKERS_YOU_WON_NATION_WAR
-                                .replace("{CLAIMS}", String.valueOf(baseBlocksPerAttacker)));
-                    }
-                }
+                war.messageAttackingAllies(LocaleReader.ATTACKERS_YOU_WON_NATION_WAR
+                        .replace("{CLAIMS}", String.valueOf(baseBlocksPerAttacker))
+                        .replace("{COST}", String.valueOf(ConfigHandler.costJoinNationWarAttackers)));
 
                 war.messageDefenders(LocaleReader.DEFENDERS_YOU_LOST_NATION_WAR
                         .replace("{CLAIMS}", String.valueOf(remainingBlocks + baseBlocksPerAttacker)));
 
-                // Attacking nation gets the blocks that were lost by rounding.
-                for (Nation nation : war.nationsDefending) {
-                    for (Town town : nation.getTowns()) {
-                        if (town == war.defenders) continue;
+                war.messageDefendingAllies(LocaleReader.DEFENDING_NATIONS_YOU_LOST_NATION_WAR);
 
-                        sendMessageToTown(town, LocaleReader.DEFENDING_NATIONS_YOU_LOST_NATION_WAR
-                                .replace("{CLAIMS}", String.valueOf(baseBlocksPerAttacker)));
-                    }
-                }
+                war.attackers.getAccount().deposit(ConfigHandler.costStartNationWar, LocaleReader.NATION_WAR_DEPOSIT);
 
             } else {
                 int defenderBlocks = war.defenders.getTotalBlocks();
@@ -563,9 +554,12 @@ public class WarManager {
                 war.attackers.setBonusBlocks(war.attackers.getBonusBlocks() + lost);
 
                 war.messageAttackers(LocaleReader.ATTACKERS_YOU_WON_TOWN_WAR
-                        .replace("{CLAIMS}", lost + ""));
+                        .replace("{CLAIMS}", lost + "")
+                        .replace("{COST}", String.valueOf(ConfigHandler.costStartTownWar)));
                 war.messageDefenders(LocaleReader.DEFENDERS_YOU_LOST_TOWN_WAR
                         .replace("{CLAIMS}", lost + ""));
+
+                war.attackers.getAccount().deposit(ConfigHandler.costStartTownWar, LocaleReader.TOWN_WAR_DEPOSIT);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -596,10 +590,11 @@ public class WarManager {
 
         // This is the most likely to error, so try to restore the blocks
         // TODO: Re add this
-        /*for (Map.Entry<Location, BlockData> blockEntry : war.restoreBlocksAfterWar.entrySet()) {
-            Location blockLocation = blockEntry.getKey();
-            blockLocation.getWorld().getBlockAt(blockLocation).setBlockData(blockEntry.getValue());
-        }*/
+        for (HashMap<Location, BlockState> blockHashMap : war.blocksToRestore.values()) {
+            for (Map.Entry<Location, BlockState> key : blockHashMap.entrySet()) {
+                PaperLib.getChunkAtAsync(key.getKey()).thenAccept(chunk -> chunk.getBlock(key.getKey().getBlockX() & 0xF, key.getKey().getBlockY() & 0xFF, key.getKey().getBlockZ() & 0xF).setBlockData(key.getValue().getBlockData()));
+            }
+        }
     }
 
     public static void sendMessageToTown(Town town, String message) {

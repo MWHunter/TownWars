@@ -67,6 +67,8 @@ public class ConfigHandler {
         ticksWithoutAttackersOccupyingUntilDefendersWin = config.getInt("ticksWithoutAttackersOccupyingUntilDefendersWin", 400);
         ticksBetweenNotOccupyingWarning = config.getInt("ticksBetweenNotOccupyingWarning", 100);
         ticksBeforeWarBegins = config.getInt("ticksBeforeWarBegins", 1200);
+        ticksToRestoreBrokenBlocks = config.getInt("ticksToRestoreBrokenBlocks", 1200);
+        ticksToRemovePlacedBlocks = config.getInt("ticksToRemovePlacedBlocks",600);
     }
 
     public static void addMaterials() {

@@ -70,7 +70,7 @@ public class Events implements Listener {
                         war.defenders == breakerTown)) {
                     event.setCancelled(false);
                     cancelNextBlockBreakDrop.add(event.getPlayer().getUniqueId());
-                    war.restoreBlockPlaced(event.getBlock().getLocation(), event.getBlock().getState());
+                    war.restoreBlockBroken(event.getBlock().getLocation(), event.getBlock().getState());
 
                     return;
                 }
@@ -85,7 +85,7 @@ public class Events implements Listener {
                             // both nations are in a war.
                             event.setCancelled(false);
                             cancelNextBlockBreakDrop.add(event.getPlayer().getUniqueId());
-                            war2.restoreBlockPlaced(event.getBlock().getLocation(), event.getBlock().getState());
+                            war2.restoreBlockBroken(event.getBlock().getLocation(), event.getBlock().getState());
 
                             return;
                         }

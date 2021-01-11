@@ -24,6 +24,8 @@ ticksUntilNoLongerInCombat: 300
 ticksWithoutAttackersOccupyingUntilDefendersWin: 400
 ticksBetweenNotOccupyingWarning: 100
 ticksBeforeWarBegins: 1200
+ticksToRestoreBrokenBlocks: 1200
+ticksToRemovePlacedBlocks: 600
 
 allowed-switches-in-war:
   - ACACIA_DOOR

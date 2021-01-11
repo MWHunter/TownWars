@@ -13,11 +13,11 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.HashSet;
 
-// TODO: Force players to enemy all enemies
+// TODO: Force players to enemy all enemies (nation wars)
 // TODO: Add bstats
 // TODO: Limit wars players can enter
 // TODO: Cooldown after losing a war
-// TODO: Allow breaking chests (don't drop items)
+// TODO: Allow breaking chests? (should we?) (don't drop items)
 // TODO: Require some Towny permission for starting a war.
 // TODO: Confirm cost to join wars
 // TODO: Long term, add ability to disable economy part entirely
