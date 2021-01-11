@@ -399,7 +399,7 @@ public class WarManager {
 
         if (!war.attackerWantsPeace || !war.defenderWantsPeace) {
             if (war.tick - war.lastPeaceRequestEpoch < ConfigHandler.minSecondsBetweenPeaceRequests * 20L) {
-                war.messagePlayer(player, LocaleReader.COMMAND_NEXT_PEACE_REQUEST_TIME.replace("{TIME_LEFT}", War.formatSeconds((war.tick - war.lastPeaceRequestEpoch) / 20)));
+                war.messagePlayer(player, LocaleReader.COMMAND_NEXT_PEACE_REQUEST_TIME.replace("{TIME_LEFT}", formatSeconds((war.tick - war.lastPeaceRequestEpoch) / 20)));
                 return;
             }
 
@@ -592,13 +592,14 @@ public class WarManager {
         // and finally, delete the saved war file
         war.delete();
 
-        war.removeEveryoneBossBars();
+        war.warBossbar.removeEveryoneBossBars();
 
         // This is the most likely to error, so try to restore the blocks
-        for (Map.Entry<Location, BlockData> blockEntry : war.restoreBlocksAfterWar.entrySet()) {
+        // TODO: Re add this
+        /*for (Map.Entry<Location, BlockData> blockEntry : war.restoreBlocksAfterWar.entrySet()) {
             Location blockLocation = blockEntry.getKey();
             blockLocation.getWorld().getBlockAt(blockLocation).setBlockData(blockEntry.getValue());
-        }
+        }*/
     }
 
     public static void sendMessageToTown(Town town, String message) {
@@ -606,5 +607,24 @@ public class WarManager {
             if (resident.getPlayer() == null) continue;
             LocaleReader.send(resident.getPlayer(), message);
         }
+    }
+
+    public static String formatSeconds(int secondsLeft) {
+        String timeLeftString = "";
+
+        int newSeconds = secondsLeft % 60;
+        int newHours = secondsLeft / 60;
+        int newMinutes = newHours % 60;
+        newHours = newHours / 60;
+
+        if (newHours == 1) timeLeftString += newHours + " hours ";
+        if (newHours > 1) timeLeftString += newHours + " hours ";
+        if (newMinutes == 1) timeLeftString += newMinutes + " minute ";
+        if (newMinutes > 1) timeLeftString += newMinutes + " minutes ";
+        if (newSeconds == 1) timeLeftString += newSeconds + " second";
+        if (newSeconds > 1) timeLeftString += newSeconds + " seconds";
+        if (timeLeftString.endsWith(" ")) timeLeftString = timeLeftString.substring(0, timeLeftString.length() - 1);
+
+        return timeLeftString;
     }
 }

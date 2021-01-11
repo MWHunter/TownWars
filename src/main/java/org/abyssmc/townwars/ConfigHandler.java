@@ -8,7 +8,6 @@ import java.util.HashSet;
 import static org.abyssmc.townwars.TownWars.allowedSwitches;
 
 public class ConfigHandler {
-    // TODO: These settings are messed up in the configs and getters.
     // General settings
     public static double minPercentOnline = 0.5;
     public static double minPlayersOnline = 1;
@@ -35,6 +34,8 @@ public class ConfigHandler {
     public static int ticksWithoutAttackersOccupyingUntilDefendersWin = 400;
     public static int ticksBetweenNotOccupyingWarning = 100;
     public static int ticksBeforeWarBegins = 1200;
+    public static int ticksToRestoreBrokenBlocks = 1200;
+    public static int ticksToRemovePlacedBlocks = 600;
     public static TownWars plugin;
     public static FileConfiguration config;
 

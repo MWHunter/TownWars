@@ -25,6 +25,7 @@ public class LocaleReader {
     public static String ATTACKERS_YOU_WON_TOWN_WAR;
     public static String ATTACKING_NATIONS_YOU_LOST_NATION_WAR;
     public static String ATTACKING_NATIONS_YOU_WON_NATION_WAR;
+    public static String CANNOT_PLACE_BLOCKS_ON_HOME_BLOCK;
     public static String COMMAND_AN_ERROR_OCCURRED;
     public static String COMMAND_ALLY_OF_BOTH_ATTACKERS_AND_DEFENDERS;
     public static String COMMAND_CANNOT_ATTACK_ALLIES;
@@ -121,6 +122,7 @@ public class LocaleReader {
         ATTACKERS_YOU_WON_TOWN_WAR = config.getString("attackers-you-won-town-war", "&bYou won &f{CLAIMS} claims&b for winning the war against &f{DEFENDERS}&b");
         ATTACKING_NATIONS_YOU_LOST_NATION_WAR = config.getString("attacking-nations-you-lost-nation-war", "&bYou lost the war helping &f{ATTACKERS}&b siege &f{DEFENDERS}&b");
         ATTACKING_NATIONS_YOU_WON_NATION_WAR = config.getString("attacking-nations-you-won-nation-war", "&bYou won &f{CLAIMS} claims&b for helping &f{NATION_ATTACKER}&b win the nation war against &f{NATION_DEFENDER}&b");
+        CANNOT_PLACE_BLOCKS_ON_HOME_BLOCK = config.getString("cannot-place-blocks-on-home-block", "&cYou cannot place blocks on the home block");
         COMMAND_AN_ERROR_OCCURRED = config.getString("command-an-error-occurred", "&4An unknown error has occurred.");
         COMMAND_ALLY_OF_BOTH_ATTACKERS_AND_DEFENDERS = config.getString("command-ally-of-both-attackers-and-defenders", "&cYou cannot join this war because you are allied to both &f{NATION_ATTACKER}&c and &f{NATION_DEFENDER}");
         COMMAND_CANNOT_ATTACK_ALLIES = config.getString("command-cannot-attack-allies", "&cYou cannot attack your allies");

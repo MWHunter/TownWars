@@ -10,13 +10,11 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 // This is the class that deals with commands only
 public class WarCommand extends BaseCommand implements CommandExecutor {
+    public static final List<String> warSubCommands = Arrays.asList("declare", "confirm", "peace", "surrender", "list", "help");
     public static HashMap<UUID, String[]> commandsToConfirm = new HashMap<>();
 
     @Override
@@ -45,6 +43,7 @@ public class WarCommand extends BaseCommand implements CommandExecutor {
                 if (player.hasPermission("townwars.declare")) {
                     if (args.length < 2) {
                         LocaleReader.send(player, LocaleReader.COMMAND_NO_SPECIFIED_TOWN);
+                        return true;
                     }
 
                     Town targetTown = WarUtility.parseTargetTown(args[1]);
@@ -61,7 +60,7 @@ public class WarCommand extends BaseCommand implements CommandExecutor {
                         LocaleReader.send(player, LocaleReader.CONFIRM_START_TOWN_WAR
                                 .replace("{ATTACKERS}", playerTown.getName())
                                 .replace("{DEFENDERS}", targetTown.getName())
-                                .replace("{TIME_LIMIT}", War.formatSeconds(ConfigHandler.tickLimitNationWar / 20))
+                                .replace("{TIME_LIMIT}", WarManager.formatSeconds(ConfigHandler.tickLimitNationWar / 20))
                                 .replace("{COST}", String.valueOf(ConfigHandler.costStartTownWar)));
                         //}
 
@@ -153,11 +152,11 @@ public class WarCommand extends BaseCommand implements CommandExecutor {
                     War targetWar = WarUtility.parseTargetWar(args, player);
 
                     if (targetWar == null) {
-                        LocaleReader.send(player, LocaleReader.COMMAND_MUST_SPECIFY_WAR_TO_END);
+                        // parsing already sent a message
                         return true;
                     }
 
-                    WarManager.endDiplomatically(WarUtility.parseTargetWar(args, player), player);
+                    WarManager.endDiplomatically(targetWar, player);
 
                     return true;
                 } else {
@@ -199,6 +198,7 @@ public class WarCommand extends BaseCommand implements CommandExecutor {
 
                     if (!hasSentHeader) {
                         LocaleReader.send(sender, LocaleReader.COMMAND_NOT_IN_ANY_WARS);
+                        return true;
                     }
 
 
@@ -258,7 +258,7 @@ public class WarCommand extends BaseCommand implements CommandExecutor {
         List<String> returnList = new ArrayList<>();
         switch (args.length) {
             case 1:
-                return null;
+                return warSubCommands;
             case 2:
                 switch (args[0].toLowerCase()) {
                     case "declare":

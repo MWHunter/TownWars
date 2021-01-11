@@ -9,7 +9,6 @@ import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
 import com.palmergames.bukkit.towny.object.Resident;
 import com.palmergames.bukkit.towny.object.Town;
 import com.palmergames.bukkit.towny.regen.TownyRegenAPI;
-import org.bukkit.Bukkit;
 import org.bukkit.block.Block;
 import org.bukkit.block.Container;
 import org.bukkit.entity.Player;
@@ -26,14 +25,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.UUID;
 
+// TODO: The only way to break a chest is with tnt.  There is no way to break dispensers.
 public class Events implements Listener {
     static HashSet<UUID> cancelNextBlockBreakDrop = new HashSet<>();
     static HashMap<UUID, War> logNextBlockPlace = new HashMap<>();
     TownyAPI towny = TownyAPI.getInstance();
-
-    // TODO: Make defender actions also be rolled back?
-    // TODO: Individual configs for allowing placing/breaking containers for attackers/defenders
-    // default off to stop attackers from breaking all the chests that defenders need for defense
 
     // Towny uses event priority high for some reason
     // Using event priority higher allows us interact with towny's block break event.
@@ -48,6 +44,14 @@ public class Events implements Listener {
 
     @EventHandler
     public void onBlockBreakEvent(TownyDestroyEvent event) {
+        // Okay.  So TownyDestroyEvent is called when players hurt animals
+        // An animal has a 1234.56789876 exact coordinate while a block has 1234.0 as an exact coordinate
+        // Therefore if we check whether the exact coordinate equals the block coordinate, we know whether
+        // it is an animal or a block.  Yes.  This is stupid and a hack.  Blame Towny, not me.
+        if (event.getLocation().getX() != event.getLocation().getBlockX() && event.getLocation().getZ() != event.getLocation().getBlockZ()) {
+            return;
+        }
+
         //if (!event.isCancelled()) return;
         try {
             if (event.getTownBlock() == null) return;
@@ -66,7 +70,7 @@ public class Events implements Listener {
                         war.defenders == breakerTown)) {
                     event.setCancelled(false);
                     cancelNextBlockBreakDrop.add(event.getPlayer().getUniqueId());
-                    war.restoreBlock(event.getBlock().getLocation(), event.getBlock().getBlockData());
+                    war.restoreBlockPlaced(event.getBlock().getLocation(), event.getBlock().getState());
 
                     return;
                 }
@@ -81,7 +85,7 @@ public class Events implements Listener {
                             // both nations are in a war.
                             event.setCancelled(false);
                             cancelNextBlockBreakDrop.add(event.getPlayer().getUniqueId());
-                            war2.restoreBlock(event.getBlock().getLocation(), event.getBlock().getBlockData());
+                            war2.restoreBlockPlaced(event.getBlock().getLocation(), event.getBlock().getState());
 
                             return;
                         }
@@ -100,7 +104,6 @@ public class Events implements Listener {
         for (Block block : event.getVanillaBlockList()) {
             if (!TownWars.townsUnderSiege.containsKey(towny.getTown(block.getLocation()))) continue;
             // Don't allow blowing up chests, defenders should have access to them!
-            // TODO: Make this a config
             if (block.getState() instanceof Container) continue;
 
             count++;
@@ -116,10 +119,11 @@ public class Events implements Listener {
             War war = logNextBlockPlace.get(playerUUID);
             logNextBlockPlace.remove(playerUUID);
             event.getBlockReplacedState().getBlock();
-            war.restoreBlock(event.getBlock().getLocation(), event.getBlockReplacedState().getBlockData());
+            war.restoreBlockPlaced(event.getBlock().getLocation(), event.getBlockReplacedState());
         }
     }
 
+    // TODO: Stop spawn camping by disallowing block placing at home block.
     @EventHandler
     public void onBlockPlaceEvent(TownyBuildEvent event) {
         try {
@@ -133,6 +137,8 @@ public class Events implements Listener {
                 if (war != null && war.currentState != War.WarState.PREWAR && (war.attackers == openerTown
                         || war.defenders == openerTown)) {
                     if (event.getBlock().isLiquid() || event.getBlock().getState() instanceof Container) return;
+
+                    if (event.getTownBlock().isHomeBlock()) return;
 
                     event.setCancelled(false);
                     logNextBlockPlace.put(event.getPlayer().getUniqueId(), war);
@@ -149,7 +155,6 @@ public class Events implements Listener {
                         if (war2.currentState != War.WarState.PREWAR &&
                                 TownWars.nationCurrentNationWars.get(placeTown.getNation()).contains(war2)) {
                             // both nations are in a war.
-                            // TODO: Make this a config
                             if (event.getBlock().isLiquid() || event.getBlock().getState() instanceof Container) return;
 
                             event.setCancelled(false);
@@ -313,7 +318,7 @@ public class Events implements Listener {
     public void playerJoinEvent(PlayerJoinEvent event) {
         for (War war : TownWars.currentWars) {
             if (WarManager.isPartOfWar(event.getPlayer(), war)) {
-                TownWars.adventure().player(event.getPlayer()).showBossBar(war.warBossBar);
+                war.warBossbar.sendPlayerBossBar(event.getPlayer());
             }
         }
     }
