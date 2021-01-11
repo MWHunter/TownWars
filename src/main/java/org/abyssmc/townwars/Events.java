@@ -138,7 +138,10 @@ public class Events implements Listener {
                         || war.defenders == openerTown)) {
                     if (event.getBlock().isLiquid() || event.getBlock().getState() instanceof Container) return;
 
-                    if (event.getTownBlock().isHomeBlock()) return;
+                    if (event.getTownBlock().isHomeBlock()) {
+                        LocaleReader.send(event.getPlayer(), LocaleReader.CANNOT_PLACE_BLOCKS_ON_HOME_BLOCK);
+                        return;
+                    }
 
                     event.setCancelled(false);
                     logNextBlockPlace.put(event.getPlayer().getUniqueId(), war);
