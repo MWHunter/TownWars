@@ -10,6 +10,7 @@ import com.palmergames.bukkit.towny.object.Town;
 import com.palmergames.paperlib.PaperLib;
 import org.bukkit.Location;
 import org.bukkit.block.BlockState;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
@@ -595,9 +596,9 @@ public class WarManager {
 
         // This is the most likely to error, so try to restore the blocks
         // TODO: Re add this
-        for (HashMap<Location, BlockState> blockHashMap : war.blocksToRestore.values()) {
-            for (Map.Entry<Location, BlockState> key : blockHashMap.entrySet()) {
-                PaperLib.getChunkAtAsync(key.getKey()).thenAccept(chunk -> chunk.getBlock(key.getKey().getBlockX() & 0xF, key.getKey().getBlockY() & 0xFF, key.getKey().getBlockZ() & 0xF).setBlockData(key.getValue().getBlockData()));
+        for (HashMap<Location, BlockData> blockHashMap : war.blocksToRestore.values()) {
+            for (Map.Entry<Location, BlockData> key : blockHashMap.entrySet()) {
+                PaperLib.getChunkAtAsync(key.getKey()).thenAccept(chunk -> chunk.getBlock(key.getKey().getBlockX() & 0xF, key.getKey().getBlockY() & 0xFF, key.getKey().getBlockZ() & 0xF).setBlockData(key.getValue()));
             }
         }
     }

@@ -45,7 +45,7 @@ public class War {
 
     Town playerIteratorTown;
     // TODO: There has to be a better way
-    HashMap<Integer, HashMap<Location, BlockState>> blocksToRestore = new HashMap<>();
+    HashMap<Integer, HashMap<Location, BlockData>> blocksToRestore = new HashMap<>();
 
     // TODO: Allow the nation of a town to participate in a town vs nation war
     public War(Town attackers, Town defenders) {
@@ -144,10 +144,10 @@ public class War {
 
         // Most likely to error, so do this last
         if (blocksToRestore.containsKey(tick)) {
-            for (Map.Entry<Location, BlockState> key : blocksToRestore.get(tick).entrySet()) {
+            for (Map.Entry<Location, BlockData> key : blocksToRestore.get(tick).entrySet()) {
                 // Getting blocks is x [0 : 15] y [0 : 255] z [0 : 15]
                 // 1.17 negative y coordinates will be painful, but it works for now...
-                PaperLib.getChunkAtAsync(key.getKey()).thenAccept(chunk -> chunk.getBlock(key.getKey().getBlockX() & 0xF, key.getKey().getBlockY() & 0xFF, key.getKey().getBlockZ() & 0xF).setBlockData(key.getValue().getBlockData()));
+                PaperLib.getChunkAtAsync(key.getKey()).thenAccept(chunk -> chunk.getBlock(key.getKey().getBlockX() & 0xF, key.getKey().getBlockY() & 0xFF, key.getKey().getBlockZ() & 0xF).setBlockData(key.getValue()));
             }
         }
 
@@ -235,14 +235,13 @@ public class War {
                 }
 
                 // We can use either
-                restoreBlock(new Location(Bukkit.getWorld(world), x, y, z), (BlockState) Bukkit.getServer().createBlockData(blockData.toString()), tick);
+                restoreBlock(new Location(Bukkit.getWorld(world), x, y, z), Bukkit.getServer().createBlockData(blockData.toString()), tick);
 
             } catch (Exception e) {
                 TownWars.plugin.getLogger().warning("Unable to parse block data to rollback - " + string);
                 TownWars.plugin.getLogger().warning("Continuing anyways... blocks may not rollback correctly and there may be more corruption");
                 e.printStackTrace();
             }
-
         }
     }
 
@@ -264,15 +263,15 @@ public class War {
         List<String> blocksToRollback = new ArrayList<>();
 
 
-        for (Map.Entry<Integer, HashMap<Location, BlockState>> tickMap : blocksToRestore.entrySet()) {
+        for (Map.Entry<Integer, HashMap<Location, BlockData>> tickMap : blocksToRestore.entrySet()) {
             // It's a spaghetti sandwich!
-            for (Map.Entry<Location, BlockState> iteratorBlock : tickMap.getValue().entrySet()) {
-                Location blockLocation = iteratorBlock.getValue().getLocation();
+            for (Map.Entry<Location, BlockData> iteratorBlock : tickMap.getValue().entrySet()) {
+                Location blockLocation = iteratorBlock.getKey();
                 String world = blockLocation.getWorld().getName();
                 double x = blockLocation.getX();
                 double y = blockLocation.getY();
                 double z = blockLocation.getZ();
-                String blockData = iteratorBlock.getValue().getBlockData().getAsString();
+                String blockData = iteratorBlock.getValue().getAsString();
 
                 blocksToRollback.add(tickMap.getKey() + "," + world + "," + x + "," + y + "," + z + "," + blockData);
             }
@@ -318,20 +317,20 @@ public class War {
         Bukkit.getScheduler().runTaskAsynchronously(TownWars.plugin, warFile::delete);
     }
 
-    public void restoreBlockPlaced(Location location, BlockState block) {
+    public void restoreBlockPlaced(Location location, BlockData block) {
         int restoreTick = tick + ConfigHandler.ticksToRemovePlacedBlocks;
 
         restoreBlock(location, block, restoreTick);
     }
 
-    public void restoreBlockBroken(Location location, BlockState block) {
+    public void restoreBlockBroken(Location location, BlockData block) {
         int restoreTick = tick + ConfigHandler.ticksToRestoreBrokenBlocks;
 
         restoreBlock(location, block, restoreTick);
     }
 
-    public void restoreBlock(Location location, BlockState block, int restoreTick) {
-        for (Map.Entry<Integer, HashMap<Location, BlockState>> tick : blocksToRestore.entrySet()) {
+    public void restoreBlock(Location location, BlockData block, int restoreTick) {
+        for (Map.Entry<Integer, HashMap<Location, BlockData>> tick : blocksToRestore.entrySet()) {
             if (tick.getValue().containsKey(location)) return;
         }
 
