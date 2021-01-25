@@ -6,6 +6,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import java.util.HashSet;
 
 import static org.abyssmc.townwars.TownWars.allowedSwitches;
+import static org.abyssmc.townwars.TownWars.disallowedBlocksBroken;
 
 public class ConfigHandler {
     // General settings
@@ -77,6 +78,15 @@ public class ConfigHandler {
         for (String string : config.getStringList("allowed-switches-in-war")) {
             try {
                 allowedSwitches.add(Material.getMaterial(string));
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to parse material " + string);
+                e.printStackTrace();
+            }
+        }
+
+        for (String string : config.getStringList("disallow-breaking-blocks-in-war")) {
+            try {
+                disallowedBlocksBroken.add(Material.getMaterial(string));
             } catch (Exception e) {
                 plugin.getLogger().warning("Failed to parse material " + string);
                 e.printStackTrace();

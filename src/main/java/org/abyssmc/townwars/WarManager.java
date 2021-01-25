@@ -588,6 +588,11 @@ public class WarManager {
 
         war.warBossbar.removeEveryoneBossBars();
 
+        war.attackers.setAdminEnabledPVP(false);
+        war.defenders.setAdminEnabledPVP(false);
+
+        war.removeGlow();
+
         // This is the most likely to error, so try to restore the blocks
         // TODO: Re add this
         for (HashMap<Location, BlockState> blockHashMap : war.blocksToRestore.values()) {

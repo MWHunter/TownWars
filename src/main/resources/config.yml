@@ -26,7 +26,16 @@ ticksBetweenNotOccupyingWarning: 100
 ticksBeforeWarBegins: 1200
 ticksToRestoreBrokenBlocks: 1200
 ticksToRemovePlacedBlocks: 600
-
+disallow-breaking-blocks-in-war:
+  - ITEM_FRAME
+  - PAINTING
+  - ARMOR_STAND
+  - ENDER_CRYSTAL
+  - MINECART
+  - MINECART_CHEST
+  - MINECART_FURNACE
+  - MINECART_COMMAND
+  - MINECART_HOPPER
 allowed-switches-in-war:
   - ACACIA_DOOR
   - OAK_DOOR

@@ -20,6 +20,7 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -39,10 +40,13 @@ public class Events implements Listener {
         if (cancelNextBlockBreakDrop.contains(event.getPlayer().getUniqueId())) {
             cancelNextBlockBreakDrop.remove(event.getPlayer().getUniqueId());
             event.setDropItems(false);
+            // Disable griefing via updating blocks
+            // TODO: This is probably fucked, fix it later
+            event.getBlock().getState().update(true, false);
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onBlockBreakEvent(TownyDestroyEvent event) {
         // Okay.  So TownyDestroyEvent is called when players hurt animals
         // An animal has a 1234.56789876 exact coordinate while a block has 1234.0 as an exact coordinate
@@ -51,6 +55,9 @@ public class Events implements Listener {
         if (event.getLocation().getX() != event.getLocation().getBlockX() && event.getLocation().getZ() != event.getLocation().getBlockZ()) {
             return;
         }
+
+        // Item frame or something similar
+        if (TownWars.disallowedBlocksBroken.contains(event.getBlock().getType())) return;
 
         //if (!event.isCancelled()) return;
         try {
@@ -124,10 +131,11 @@ public class Events implements Listener {
     }
 
     // TODO: Stop spawn camping by disallowing block placing at home block.
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onBlockPlaceEvent(TownyBuildEvent event) {
         try {
             if (event.getTownBlock() == null) return;
+
             Town placeTown = event.getTownBlock().getTown();
             if (TownWars.townsUnderSiege.containsKey(placeTown)) {
                 Town openerTown = towny.getDataSource().getResident(event.getPlayer().getName()).getTown();
@@ -172,9 +180,8 @@ public class Events implements Listener {
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onSwitchUse(TownySwitchEvent event) {
-        if (!event.isCancelled()) return;
         if (event.getTownBlock() == null) return;
         try {
             Town switchTown = event.getTownBlock().getTown();
@@ -319,10 +326,20 @@ public class Events implements Listener {
     // Give players bossbars if they need it
     @EventHandler
     public void playerJoinEvent(PlayerJoinEvent event) {
+        // Double check that player isn't glowing
+        event.getPlayer().setGlowing(false);
+
         for (War war : TownWars.currentWars) {
             if (WarManager.isPartOfWar(event.getPlayer(), war)) {
                 war.warBossbar.sendPlayerBossBar(event.getPlayer());
+                war.makeAttackersGlow();
             }
         }
+    }
+
+    // Make player not glow
+    @EventHandler
+    public void playerQuitEvent(PlayerQuitEvent event) {
+        event.getPlayer().setGlowing(false);
     }
 }

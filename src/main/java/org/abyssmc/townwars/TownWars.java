@@ -27,6 +27,7 @@ public final class TownWars extends JavaPlugin {
     public static Plugin plugin;
     public static HashMap<Nation, HashSet<War>> nationCurrentNationWars = new HashMap<>();
     public static HashSet<Material> allowedSwitches = new HashSet<>();
+    public static HashSet<Material> disallowedBlocksBroken = new HashSet<>();
 
     private static BukkitAudiences adventure;
 

@@ -10,15 +10,13 @@ import com.palmergames.paperlib.PaperLib;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.BlockState;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 // This is the war class that cannot touch the main hashmaps and caches
 public class War {
@@ -60,6 +58,11 @@ public class War {
         addTownsNationsToList();
         warBossbar.updateBossBar();
         warBossbar.sendEveryoneBossBars();
+
+        attackers.setAdminEnabledPVP(true);
+        defenders.setAdminEnabledPVP(true);
+
+        makeAttackersGlow();
     }
 
     // Allow loading from a saved war
@@ -212,6 +215,35 @@ public class War {
 
         WarManager.setupWar(this, false);
         warBossbar.sendEveryoneBossBars();
+
+        List<String> blocksToRollback = warConfiguration.getStringList("blocksToRollback");
+
+        for (String string : blocksToRollback) {
+            try {
+                // Example entry: world,1543.0,64.0,809.0,minecraft:oak_slab[type=bottom,waterlogged=false]
+                String[] splitList = string.split(",");
+
+                int tick = Integer.parseInt(splitList[0]);
+                String world = splitList[1];
+                double x = Double.parseDouble(splitList[2]);
+                double y = Double.parseDouble(splitList[3]);
+                double z = Double.parseDouble(splitList[4]);
+                StringBuilder blockData = new StringBuilder(splitList[5]);
+
+                for (int i = 6; i < splitList.length; i++) {
+                    blockData.append(",").append(splitList[i]);
+                }
+
+                // We can use either
+                restoreBlock(new Location(Bukkit.getWorld(world), x, y, z), (BlockState) Bukkit.getServer().createBlockData(blockData.toString()), tick);
+
+            } catch (Exception e) {
+                TownWars.plugin.getLogger().warning("Unable to parse block data to rollback - " + string);
+                TownWars.plugin.getLogger().warning("Continuing anyways... blocks may not rollback correctly and there may be more corruption");
+                e.printStackTrace();
+            }
+
+        }
     }
 
     // If we are shutting down the server, do it sync to 100% be sure the save finishes
@@ -227,6 +259,26 @@ public class War {
         warConfiguration.set("defenderWantsPeace", defenderWantsPeace);
         warConfiguration.set("lastPeaceRequestEpoch", lastPeaceRequestEpoch);
         warConfiguration.set("tick", tick);
+
+        // Saving blocks to roll back
+        List<String> blocksToRollback = new ArrayList<>();
+
+
+        for (Map.Entry<Integer, HashMap<Location, BlockState>> tickMap : blocksToRestore.entrySet()) {
+            // It's a spaghetti sandwich!
+            for (Map.Entry<Location, BlockState> iteratorBlock : tickMap.getValue().entrySet()) {
+                Location blockLocation = iteratorBlock.getValue().getLocation();
+                String world = blockLocation.getWorld().getName();
+                double x = blockLocation.getX();
+                double y = blockLocation.getY();
+                double z = blockLocation.getZ();
+                String blockData = iteratorBlock.getValue().getBlockData().getAsString();
+
+                blocksToRollback.add(tickMap.getKey() + "," + world + "," + x + "," + y + "," + z + "," + blockData);
+            }
+        }
+
+        warConfiguration.set("blocksToRollback", blocksToRollback);
 
         if (!async) {
             try {
@@ -269,20 +321,16 @@ public class War {
     public void restoreBlockPlaced(Location location, BlockState block) {
         int restoreTick = tick + ConfigHandler.ticksToRemovePlacedBlocks;
 
-        for (Map.Entry<Integer, HashMap<Location, BlockState>> tick : blocksToRestore.entrySet()) {
-            if (tick.getValue().containsKey(location)) return;
-        }
-
-        if (!blocksToRestore.containsKey(restoreTick)) {
-            blocksToRestore.put(restoreTick, new HashMap<>());
-        }
-
-        blocksToRestore.get(restoreTick).put(location, block);
+        restoreBlock(location, block, restoreTick);
     }
 
     public void restoreBlockBroken(Location location, BlockState block) {
         int restoreTick = tick + ConfigHandler.ticksToRestoreBrokenBlocks;
 
+        restoreBlock(location, block, restoreTick);
+    }
+
+    public void restoreBlock(Location location, BlockState block, int restoreTick) {
         for (Map.Entry<Integer, HashMap<Location, BlockState>> tick : blocksToRestore.entrySet()) {
             if (tick.getValue().containsKey(location)) return;
         }
@@ -299,7 +347,7 @@ public class War {
             for (Nation nation : nationsAttacking) {
                 for (Town town : nation.getTowns()) {
                     for (Resident resident : town.getResidents()) {
-                        if (resident.getPlayer() == null) continue;
+                        if (resident.getPlayer() == null || resident.getPlayer().isDead()) continue;
                         if (TownyAPI.getInstance().getTown(resident.getPlayer().getLocation()) == defenders) {
                             return true;
                         }
@@ -309,7 +357,7 @@ public class War {
             }
         } else {
             for (Resident resident : attackers.getResidents()) {
-                if (resident.getPlayer() == null) continue;
+                if (resident.getPlayer() == null || resident.getPlayer().isDead()) continue;
                 playerIteratorTown = TownyAPI.getInstance().getTown(resident.getPlayer().getLocation());
                 if (playerIteratorTown != null && playerIteratorTown == defenders) {
                     return true;
@@ -440,6 +488,42 @@ public class War {
         } catch (NotRegisteredException exception) {
             exception.printStackTrace();
             return null;
+        }
+    }
+
+    public void makeAttackersGlow() {
+        if (isNationWar) {
+            for (Nation nation : nationsAttacking) {
+                for (Town town : nation.getTowns()) {
+                    for (Resident resident : town.getResidents()) {
+                        if (resident.getPlayer() == null) continue;
+                        resident.getPlayer().setGlowing(true);
+                    }
+                }
+            }
+        } else {
+            for (Resident resident : attackers.getResidents()) {
+                if (resident.getPlayer() == null) continue;
+                resident.getPlayer().setGlowing(true);
+            }
+        }
+    }
+
+    public void removeGlow() {
+        if (isNationWar) {
+            for (Nation nation : nationsAttacking) {
+                for (Town town : nation.getTowns()) {
+                    for (Resident resident : town.getResidents()) {
+                        if (resident.getPlayer() == null) continue;
+                        resident.getPlayer().setGlowing(false);
+                    }
+                }
+            }
+        } else {
+            for (Resident resident : attackers.getResidents()) {
+                if (resident.getPlayer() == null) continue;
+                resident.getPlayer().setGlowing(false);
+            }
         }
     }
 
