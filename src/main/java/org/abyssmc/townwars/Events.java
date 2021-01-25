@@ -9,6 +9,7 @@ import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
 import com.palmergames.bukkit.towny.object.Resident;
 import com.palmergames.bukkit.towny.object.Town;
 import com.palmergames.bukkit.towny.regen.TownyRegenAPI;
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.Container;
 import org.bukkit.entity.Player;
@@ -16,6 +17,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPhysicsEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
@@ -40,9 +42,14 @@ public class Events implements Listener {
         if (cancelNextBlockBreakDrop.contains(event.getPlayer().getUniqueId())) {
             cancelNextBlockBreakDrop.remove(event.getPlayer().getUniqueId());
             event.setDropItems(false);
+
             // Disable griefing via updating blocks
-            // TODO: This is probably fucked, fix it later
-            event.getBlock().getState().update(true, false);
+            // TODO: This code sucks and will break other plugins
+            // the alternative is to listen to blockPhysicsEvent, which is called
+            // thousands of times a second
+            event.getBlock().setType(Material.AIR, false);
+
+            event.setCancelled(true);
         }
     }
 
@@ -148,6 +155,8 @@ public class Events implements Listener {
 
                     if (event.getTownBlock().isHomeBlock()) {
                         LocaleReader.send(event.getPlayer(), LocaleReader.CANNOT_PLACE_BLOCKS_ON_HOME_BLOCK);
+                        event.setCancelled(true);
+
                         return;
                     }
 
