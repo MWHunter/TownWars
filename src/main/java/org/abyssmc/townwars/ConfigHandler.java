@@ -27,6 +27,12 @@ public class ConfigHandler {
     public static double nationWarBlocksTransferPercent = 0.1;
     public static double townWarBlocksTransferPercent = 0.1;
 
+    // when people can war
+    public static int cooldownSecondsAttackersLoseAttackSameTown = 604800; //  one week
+    public static int cooldownSecondsAttackersLoseAttackDifferentTown = 600; // 10 minutes
+    public static int cooldownSecondsDefendersLoseAttackBySameTown = 604800; // one week
+    public static int cooldownSecondsDefendersLoseAttackByDifferentTown = 172800; // two days
+
     // How to win the war
     public static int tickLimitTownWar = 18000;
     public static int tickLimitNationWar = 36000;
@@ -43,6 +49,7 @@ public class ConfigHandler {
     public static void reload() {
         addMaterials();
 
+        // General settings
         minPercentOnline = config.getDouble("minPercentOnline", 0.5);
         minPlayersOnline = config.getInt("minPlayersOnline", 1);
         minPlayersOnlineBypassPercent = config.getInt("minPlayersOnlineBypassPercent", 4);
@@ -59,6 +66,11 @@ public class ConfigHandler {
         daysConqueredIfInNation = config.getInt("daysConqueredIfInNation", 7);
         nationWarBlocksTransferPercent = config.getDouble("nationWarBlocksTransferEvent", 0.1);
         townWarBlocksTransferPercent = config.getDouble("townWarBlocksTransferPercent", 0.1);
+
+        // when people can war
+        cooldownSecondsAttackersLoseAttackSameTown = config.getInt("cooldown-seconds-attackers-lose-attack-same-town", 604800); //  one week
+        cooldownSecondsAttackersLoseAttackDifferentTown = config.getInt("cooldown-seconds-attackers-lose-attack-different-town", 600); // 10 minutes
+        cooldownSecondsDefendersLoseAttackByDifferentTown = config.getInt("cooldown-seconds-defenders-lose-attack-by-different-town", 172800); // two days
 
         // How to win the war
         tickLimitTownWar = config.getInt("tickLimitTownWar", 18000);

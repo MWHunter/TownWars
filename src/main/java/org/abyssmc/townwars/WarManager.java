@@ -9,7 +9,6 @@ import com.palmergames.bukkit.towny.object.Resident;
 import com.palmergames.bukkit.towny.object.Town;
 import com.palmergames.paperlib.PaperLib;
 import org.bukkit.Location;
-import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 
@@ -160,20 +159,16 @@ public class WarManager {
     public static boolean isPartOfWar(Player player, War war) {
         if (war.isNationWar) {
             for (Nation nation : war.nationsAttacking) {
-                for (Town town : nation.getTowns()) {
-                    for (Resident resident : nation.getResidents()) {
-                        if (resident.getUUID().equals(player.getUniqueId())) {
-                            return true;
-                        }
+                for (Resident resident : nation.getResidents()) {
+                    if (resident.getUUID().equals(player.getUniqueId())) {
+                        return true;
                     }
                 }
             }
 
             for (Nation nation : war.nationsDefending) {
-                for (Town town : nation.getTowns()) {
-                    for (Resident resident : nation.getResidents()) {
-                        if (resident.getUUID().equals(player.getUniqueId())) return true;
-                    }
+                for (Resident resident : nation.getResidents()) {
+                    if (resident.getUUID().equals(player.getUniqueId())) return true;
                 }
             }
 
@@ -204,36 +199,79 @@ public class WarManager {
             return false;
         }
 
-        if (attackers.hasNation() && defenders.hasNation()) {
-            if (!checkCanCreateNationWar(WarUtility.getNation(attackers), WarUtility.getNation(defenders), player))
-                return false;
-
-            /*if (!attackers.isCapital() && defenders.isCapital()) {
-                LocaleReader.send(player, LocaleReader.COMMAND_ONLY_CAPITAL_CAN_ATTACK_CAPITAL);
-                return false;
-            }*/
+        if (!attackers.hasNation()) {
+            LocaleReader.send(player, LocaleReader.ATTACKERS_MUST_BE_IN_NATION);
+            return false;
         }
+
+        if (!defenders.hasNation()) {
+            LocaleReader.send(player, LocaleReader.DEFENDERS_MUST_BE_IN_NATION);
+            return false;
+        }
+
+        if (!checkCanCreateNationWar(WarUtility.getNation(attackers), WarUtility.getNation(defenders), player))
+            return false;
 
         if (attackers.isAlliedWith(defenders)) {
             LocaleReader.send(player, LocaleReader.COMMAND_CANNOT_ATTACK_ALLIES);
             return false;
         }
 
-        double online = 0;
+        double lastWarLost = WarCooldownManager.getAttackerLastLost(attackers.getUUID(), defenders.getUUID());
+
+        if (lastWarLost > ConfigHandler.cooldownSecondsAttackersLoseAttackSameTown) {
+            LocaleReader.send(player, LocaleReader.COOLDOWN_ATTACKERS_LOSE_ATTACK_SAME_TOWN
+                    .replace("{DEFENDERS}", defenders.getName())
+                    .replace("{TIME}", formatSeconds((int) (ConfigHandler.cooldownSecondsAttackersLoseAttackSameTown - lastWarLost))));
+            return false;
+        }
+
+        if (lastWarLost > ConfigHandler.cooldownSecondsAttackersLoseAttackDifferentTown) {
+            LocaleReader.send(player, LocaleReader.COOLDOWN_ATTACKERS_LOSE_ATTACK_DIFFERENT_TOWN
+                    .replace("{TIME}", formatSeconds((int) (ConfigHandler.cooldownSecondsAttackersLoseAttackDifferentTown - lastWarLost));
+            return false;
+        }
+
+        if (WarCooldownManager.getDefenderLostEpoch(defenders.getUUID()) > ConfigHandler.cooldownSecondsDefendersLoseAttackByDifferentTown) {
+            LocaleReader.send(player, LocaleReader.COOLDOWN_DEFENDERS_LOSE_ATTACK_BY_DIFFERENT_TOWN
+                    .replace("{DEFENDERS}", defenders.getName())
+                    .replace("{TIME}", formatSeconds((int) (ConfigHandler.cooldownSecondsAttackersLoseAttackSameTown - lastWarLost))));
+            return false;
+        }
+
+        int online = 0;
+        int requiredOnline = 0;
 
         for (Resident resident : defenders.getResidents()) {
             if (resident.getPlayer() != null) ++online;
         }
 
+        // Get how many players are required to be online
+        for (String string : TownWars.plugin.getConfig().getStringList("min-online-to-be-attacked-town-wars")) {
+            try {
+                String[] split = string.split(", ");
+                int minOnline = Integer.parseInt(split[0]);
+                int townSize = Integer.parseInt(split[1]);
+
+                // Check if town is large enough to apply, and another setting hasn't applied a larger amount
+                // The latter can happen with an unsorted list of minimum players online
+                if (online >= townSize && requiredOnline < minOnline) {
+                    requiredOnline = minOnline;
+                }
+
+            } catch (NumberFormatException e) {
+                TownWars.plugin.getLogger().warning("Unable to parse " + string + " as a minimum amount online");
+                TownWars.plugin.getLogger().warning("Correct format is: - \"1, 2\"");
+                e.printStackTrace();
+            }
+        }
+
         // TODO: Stop nations from creating a capital and having no players online in the capital
         // TODO: Do this by making nations have a different set of values for starting wars than towns.
-        if (!(online > ConfigHandler.minPlayersOnlineBypassPercent) && online /
-                ((double) defenders.getResidents().size()) < ConfigHandler.minPercentOnline ||
-                online < ConfigHandler.minPlayersOnline) {
+        if (online < requiredOnline) {
             LocaleReader.send(player, LocaleReader.COMMAND_CANNOT_ATTACK_NOT_ENOUGH_DEFENDERS_ONLINE
-                    .replace("{PERCENT}", String.valueOf(100 * ConfigHandler.minPercentOnline))
-                    .replace("{NUMBER_WITH_PERCENT}", String.valueOf((int) ConfigHandler.minPlayersOnline))
-                    .replace("{NUMBER}", String.valueOf((int) ConfigHandler.minPlayersOnlineBypassPercent)));
+                    .replace("{CURRENT_PLAYERS_ONLINE}", String.valueOf(online))
+                    .replace("{MINIMUM_ONLINE}", String.valueOf(requiredOnline)));
 
             return false;
         }
@@ -348,6 +386,8 @@ public class WarManager {
             }
 
         } else {
+            war.messageGlobal(LocaleReader.GLOBAL_NEW_TOWN_WAR);
+
             war.messageAttackers(LocaleReader.COMMAND_NOW_AT_WAR_WITH_TOWN);
             war.messageDefenders(LocaleReader.DEFENDERS_TOWN_WAR_WAS_DECLARED);
         }
@@ -422,6 +462,8 @@ public class WarManager {
             war.messageDefenders(LocaleReader.DEFENDERS_NOW_AT_PEACE_TOWN_WAR);
         }
 
+        war.messageGlobal(LocaleReader.GLOBAL_TOWN_WAR_ENDS_PEACEFULLY);
+
         // Both the attacker and defender want peace
         deleteWar(war);
     }
@@ -476,13 +518,19 @@ public class WarManager {
             // This is a town war, we only need to message the two towns
             try {
                 war.defenders.getAccount().deposit(ConfigHandler.costStartTownWar, LocaleReader.TOWN_WAR_DEPOSIT);
+
+                war.messageGlobal(LocaleReader.GLOBAL_DEFENDERS_WIN_TOWN_WAR);
+
                 war.messageAttackers(LocaleReader.ATTACKERS_YOU_LOST_TOWN_WAR);
                 war.messageDefenders(LocaleReader.DEFENDERS_YOU_WON_TOWN_WAR
                         .replace("{COST}", String.valueOf(ConfigHandler.costStartTownWar)));
+
+                WarCooldownManager.setAttackerLost(war.attackers.getUUID(), war.defenders.getUUID());
             } catch (EconomyException e) {
                 e.printStackTrace();
             }
         }
+
 
         deleteWar(war);
     }
@@ -493,6 +541,7 @@ public class WarManager {
         // Set the defending town as conquered
         if (war.attackers.hasNation() && !war.isNationWar && war.defenders.hasNation() && ConfigHandler.conquerIfInNation) {
             try {
+                war.defenders.setNation(null);
                 war.defenders.setNation(war.getAttackingNation());
                 war.defenders.setConquered(true);
                 war.defenders.setConqueredDays(ConfigHandler.daysConqueredIfInNation);
@@ -554,6 +603,8 @@ public class WarManager {
                 war.defenders.setBonusBlocks(war.defenders.getBonusBlocks() - lost);
                 war.attackers.setBonusBlocks(war.attackers.getBonusBlocks() + lost);
 
+                war.messageGlobal(LocaleReader.GLOBAL_ATTACKERS_WIN_TOWN_WAR);
+
                 war.messageAttackers(LocaleReader.ATTACKERS_YOU_WON_TOWN_WAR
                         .replace("{CLAIMS}", lost + "")
                         .replace("{COST}", String.valueOf(ConfigHandler.costStartTownWar)));
@@ -561,6 +612,8 @@ public class WarManager {
                         .replace("{CLAIMS}", lost + ""));
 
                 war.attackers.getAccount().deposit(ConfigHandler.costStartTownWar, LocaleReader.TOWN_WAR_DEPOSIT);
+
+                WarCooldownManager.setDefenderLost(war.defenders.getUUID());
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -598,7 +651,7 @@ public class WarManager {
         // TODO: Re add this
         for (HashMap<Location, BlockData> blockHashMap : war.blocksToRestore.values()) {
             for (Map.Entry<Location, BlockData> key : blockHashMap.entrySet()) {
-                PaperLib.getChunkAtAsync(key.getKey()).thenAccept(chunk -> chunk.getBlock(key.getKey().getBlockX() & 0xF, key.getKey().getBlockY() & 0xFF, key.getKey().getBlockZ() & 0xF).setBlockData(key.getValue()));
+                PaperLib.getChunkAtAsync(key.getKey()).thenAccept(chunk -> chunk.getBlock(key.getKey().getBlockX() & 0xF, key.getKey().getBlockY() & 0xFF, key.getKey().getBlockZ() & 0xF).setBlockData(key.getValue(), false));
             }
         }
     }

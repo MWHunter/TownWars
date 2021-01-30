@@ -50,18 +50,18 @@ public class WarCommand extends BaseCommand implements CommandExecutor {
 
                     // This checks if target town is null, we don't have to do it
                     if (WarManager.checkCanCreateWar(playerTown, targetTown, player)) {
-                    /*if (playerTown.isCapital() && playerTown.hasNation() && targetTown.hasNation()) {
-                        LocaleReader.send(player, LocaleReader.CONFIRM_START_NATION_WAR
-                                .replace("{NATION_ATTACKERS}", WarUtility.getPlayerNation(player).getName())
-                                .replace("{NATION_DEFENDERS}", WarUtility.getNation(targetTown).getName())
-                                .replace("{TIME_LIMIT}", War.formatSeconds(ConfigHandler.tickLimitNationWar / 20))
-                                .replace("{COST}", String.valueOf(ConfigHandler.costStartNationWar)));
-                    } else {*/
-                        LocaleReader.send(player, LocaleReader.CONFIRM_START_TOWN_WAR
-                                .replace("{ATTACKERS}", playerTown.getName())
-                                .replace("{DEFENDERS}", targetTown.getName())
-                                .replace("{TIME_LIMIT}", WarManager.formatSeconds(ConfigHandler.tickLimitNationWar / 20))
-                                .replace("{COST}", String.valueOf(ConfigHandler.costStartTownWar)));
+                        /*if (playerTown.hasNation() && targetTown.hasNation()) {
+                            LocaleReader.send(player, LocaleReader.CONFIRM_START_NATION_WAR
+                                    .replace("{NATION_ATTACKERS}", WarUtility.getPlayerNation(player).getName())
+                                    .replace("{NATION_DEFENDERS}", WarUtility.getNation(targetTown).getName())
+                                    .replace("{TIME_LIMIT}", WarManager.formatSeconds(ConfigHandler.tickLimitNationWar / 20))
+                                    .replace("{COST}", String.valueOf(ConfigHandler.costStartNationWar)));
+                        } else {*/
+                            LocaleReader.send(player, LocaleReader.CONFIRM_START_TOWN_WAR
+                                    .replace("{ATTACKERS}", playerTown.getName())
+                                    .replace("{DEFENDERS}", targetTown.getName())
+                                    .replace("{TIME_LIMIT}", WarManager.formatSeconds(ConfigHandler.tickLimitTownWar / 20))
+                                    .replace("{COST}", String.valueOf(ConfigHandler.costStartTownWar)));
                         //}
 
                         addCommandToConfirm(player, args);

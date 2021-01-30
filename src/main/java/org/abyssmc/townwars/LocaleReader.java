@@ -6,8 +6,10 @@ import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
 
 import java.io.File;
+import java.util.Collection;
 import java.util.Objects;
 
 // Class heavily inspired by LandClaims
@@ -111,6 +113,17 @@ public class LocaleReader {
     public static Component ATTACKING_BOSS_BAR_PREWAR_MESSAGE;
     public static Component DEFENDING_BOSS_BAR_PREWAR_MESSAGE;
 
+    public static String GLOBAL_NEW_TOWN_WAR;
+    public static String GLOBAL_ATTACKERS_WIN_TOWN_WAR;
+    public static String GLOBAL_DEFENDERS_WIN_TOWN_WAR;
+    public static String GLOBAL_TOWN_WAR_ENDS_PEACEFULLY;
+
+    public static String COOLDOWN_ATTACKERS_LOSE_ATTACK_SAME_TOWN;
+    public static String COOLDOWN_ATTACKERS_LOSE_ATTACK_DIFFERENT_TOWN;
+    public static String COOLDOWN_DEFENDERS_LOSE_ATTACK_BY_DIFFERENT_TOWN;
+
+    public static String ATTACKERS_MUST_BE_IN_NATION;
+    public static String DEFENDERS_MUST_BE_IN_NATION;
 
     public static void reload() {
         String langFile = "lang-en.txt";
@@ -124,7 +137,6 @@ public class LocaleReader {
 
         ASSIST_NATION_ATTACK = config.getString("assist-nation-attack", "&bAssist &f{NATION_ATTACKER}&b &bconquer &f{NATION_DEFENDER}&b &bby running /war join {CAPITAL_BEING_SIEGED}&b");
         ASSIST_NATION_DEFENSE = config.getString("assist-nation-defense", "&bAssist &f{NATION_DEFENDER}&b defend against &f{NATION_ATTACKER}&b &bby running /war join {CAPITAL_BEING_SIEGED}&b");
-        //ATTACKERS_SCORED_KILL = config.getString("attackers-scored-kill", "&bAttackers &f{ATTACKERS_KILLS}&b &a| &bDefenders &f{DEFENDERS_KILLS}&b");
         ATTACKERS_NOW_AT_PEACE_NATION_WAR = config.getString("attackers-now-at-peace-nation-war", "&bYou are now at peace with &f{NATION_DEFENDERS}");
         ATTACKERS_NOW_AT_PEACE_TOWN_WAR = config.getString("attackers-now-at-peace-town-war", "&bYou are now at peace with &f{DEFENDERS}");
         ATTACKERS_YOU_TIED_NATION_WAR = config.getString("attackers-you-tied-nation-war", "&bYou drew the war against &f{NATION_DEFENDERS}&b");
@@ -142,7 +154,7 @@ public class LocaleReader {
         COMMAND_CANNOT_ATTACK_ALREADY_AT_WAR = config.getString("command-cannot-attack-already-at-war", "&cYou are already at war!");
         COMMAND_CANNOT_ATTACK_AS_NEUTRAL = config.getString("command-cannot-attack-as-neutral", "&cA neutral nation cannot go to war");
         COMMAND_CANNOT_ATTACK_NEUTRAL = config.getString("command-cannot-attack-neutral", "&cA neutral nation cannot be attacked");
-        COMMAND_CANNOT_ATTACK_NOT_ENOUGH_DEFENDERS_ONLINE = config.getString("command-cannot-attack-not-enough-defenders-online", "&bDefenders must have both &f{PERCENT}%&b and &f{NUMBER_WITH_PERCENT}&b players online or at least &f{NUMBER}&b players online to attack");
+        COMMAND_CANNOT_ATTACK_NOT_ENOUGH_DEFENDERS_ONLINE = config.getString("command-cannot-attack-not-enough-defenders-online", "&bA defender with &f{CURRENT_PLAYERS_ONLINE} &bplayers online must have at least &f{MINIMUM_ONLINE} &bplayers online to be attacked");
         COMMAND_CANNOT_ATTACK_YOURSELF = config.getString("command-cannot-attack-yourself", "&cYou cannot attack yourself!");
         COMMAND_HELP = config.getString("command-help", "&9War command help\n/war list - see current wars\n/war declare [town] - start a war\n/war end [town] - request to end a war peacefully\n/war surrender [town] - avoid combat and forfeit the war");
         COMMAND_MUST_BE_ENEMIES = config.getString("command-must-be-enemies", "&cYou must be a enemy of the defending nation");
@@ -157,8 +169,8 @@ public class LocaleReader {
         COMMAND_NOT_NATION_WAR = config.getString("command-not-nation-war", "&cYou cannot join a town war");
         COMMAND_NOT_PART_OF_NATION = config.getString("command-not-part-of-nation", "&cYou must be in a nation");
         COMMAND_NOT_PART_OF_TOWN = config.getString("command-not-part-of-town", "&cYou must be in a town");
-        COMMAND_NOW_AT_WAR_WITH_NATION = config.getString("command-now-at-war-with-nation", "&bYou are now at war with &f{NATION_DEFENDER}&b");
-        COMMAND_NOW_AT_WAR_WITH_TOWN = config.getString("command-now-at-war-with-town", "&bYou are now at war with &f{DEFENDERS}&b");
+        COMMAND_NOW_AT_WAR_WITH_NATION = config.getString("command-now-at-war-with-nation", "&cYou are now at war with &f{NATION_DEFENDER}&b");
+        COMMAND_NOW_AT_WAR_WITH_TOWN = config.getString("command-now-at-war-with-town", "&cYou are now at war with &f{DEFENDERS}&b");
         COMMAND_NO_SPECIFIED_TOWN = config.getString("command-no-specified-town", "&CYou must specify a town");
         COMMAND_NO_SPECIFIED_WAR = config.getString("command-no-specified-war", "&cUnable to locate war");
         COMMAND_NOTHING_TO_CONFIRM = config.getString("command-nothing-to-confirm", "&cThere is nothing to confirm");
@@ -170,9 +182,8 @@ public class LocaleReader {
         CONFIRM_START_TOWN_WAR = config.getString("confirm-start-town-war", "&fYou are declaring a town war\n&bAttackers: {ATTACKERS}\n&bDefenders: {DEFENDERS}\n&bTime Limit: {TIME_LIMIT}\n&bCost to start: {COST}\n&cConfirm with /war confirm");
         CONFIRM_JOIN_NATION_WAR_ATTACKERS = config.getString("confirm-join-nation-war-attackers", "&9You are joining a nation war as an attacker\n&bNations Attacking: {NATION_ATTACKERS}\n&bNations Defending: {NATION_DEFENDERS}\n&bTime Left: {TIME_LEFT}\n&bCost to join: {COST}\n&cConfirm with /war confirm");
         CONFIRM_JOIN_NATION_WAR_DEFENDERS = config.getString("confirm-join-nation-war-defenders", "&9You are joining a nation war as a defender\n&bNations Attacking: {NATION_ATTACKERS}\n&bNations Defending: {NATION_DEFENDERS}\n&bTime Left: {TIME_LEFT}\n&bCost to join: {COST}\n&cConfirm with /war confirm");
-        DEFENDERS_NATION_WAR_WAS_DECLARED = config.getString("defenders-nation-war-was-declared", "&f{NATION_ATTACKERS}&b has declared war on &f{NATION_DEFENDERS}&b!");
-        DEFENDERS_TOWN_WAR_WAS_DECLARED = config.getString("defenders-town-war-was-declared", "&f{ATTACKERS}&b has declared war on &f{DEFENDERS}&b");
-        //DEFENDERS_SCORED_KILL = config.getString("defenders-scored-kill", "&bAttackers &f{ATTACKERS_KILLS}&b &a| &bDefenders &f{DEFENDERS_KILLS}&b");
+        DEFENDERS_NATION_WAR_WAS_DECLARED = config.getString("defenders-nation-war-was-declared", "&f{NATION_ATTACKERS}&c has declared war on you!");
+        DEFENDERS_TOWN_WAR_WAS_DECLARED = config.getString("defenders-town-war-was-declared", "&f{ATTACKERS}&c is now at war with you!");
         DEFENDERS_NOW_AT_PEACE_NATION_WAR = config.getString("defenders-now-at-peace-nation-war", "&bYou are now at peace with &f{NATION_ATTACKERS}");
         DEFENDERS_NOW_AT_PEACE_TOWN_WAR = config.getString("defenders-now-at-peace-town-war", "&bYou are now at peace with &f{ATTACKERS}");
         DEFENDERS_YOU_TIED_NATION_WAR = config.getString("defenders-you-lost-nation-war", "&bYou drew the war against &f{NATION_ATTACKERS}&b");
@@ -218,6 +229,29 @@ public class LocaleReader {
         DEFENDING_BOSS_BAR_ATTACKERS_MISSING_MESSAGE = LegacyComponentSerializer.legacyAmpersand().deserialize(Objects.requireNonNull(config.getString("defending-boss-bar-attackers-missing-message", "Attackers Absent")));
         ATTACKING_BOSS_BAR_PREWAR_MESSAGE = LegacyComponentSerializer.legacyAmpersand().deserialize(Objects.requireNonNull(config.getString("attacking-boss-bar-prewar-message", "Countdown to War")));
         DEFENDING_BOSS_BAR_PREWAR_MESSAGE = LegacyComponentSerializer.legacyAmpersand().deserialize(Objects.requireNonNull(config.getString("defending-boss-bar-prewar-message", "Countdown to War")));
+
+        GLOBAL_NEW_TOWN_WAR = config.getString("global-new-town-war", "&f{ATTACKERS}&b has declared war on &f{DEFENDERS}");
+        GLOBAL_ATTACKERS_WIN_TOWN_WAR = config.getString("global-attackers-win-town-war", "&f{ATTACKERS}&b has conquered &f{DEFENDERS}");
+        GLOBAL_DEFENDERS_WIN_TOWN_WAR = config.getString("global-defenders-win-town-war", "&f{DEFENDERS}&b defended against &f{ATTACKERS}");
+        GLOBAL_TOWN_WAR_ENDS_PEACEFULLY = config.getString("global-town-war-ends-peacefully", "&f{ATTACKERS}&b have ended the war against &f{DEFENDERS}&b peacefully");
+
+        COOLDOWN_ATTACKERS_LOSE_ATTACK_SAME_TOWN = config.getString("cooldown-attackers-lose-attack-same-town", "&bYou cannot attack &f{DEFENDERS}&b against for &f{TIME}");
+        COOLDOWN_ATTACKERS_LOSE_ATTACK_DIFFERENT_TOWN = config.getString("cooldown-attackers-lose-attack-different-town", "&bYou lost a siege and cannot attack for &f{TIME}");
+        COOLDOWN_DEFENDERS_LOSE_ATTACK_BY_DIFFERENT_TOWN = config.getString("cooldown-defenders-lose-attack-by-different-town", "&f{DEFENDERS}&b lost a war and cannot be attacked for &f{TIME}");
+
+        ATTACKERS_MUST_BE_IN_NATION = config.getString("attackers-must-be-in-nation", "&cYou must be in a nation to attack");
+        DEFENDERS_MUST_BE_IN_NATION = config.getString("defenders-must-be-in-nation", "&cYou cannot attack a town that has no nation");
+    }
+
+    // ? extends Player because Bukkit.getOnlinePlayers()
+    public static void sendToPlayers(Collection<? extends Player> players, String message) {
+        for (Player player : players) {
+            for (String part : colorize(message).split("\n")) {
+                if (part != null && !part.isEmpty()) {
+                    player.sendMessage(PREFIX + part);
+                }
+            }
+        }
     }
 
     public static void send(CommandSender recipient, String message) {

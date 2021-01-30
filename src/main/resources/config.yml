@@ -1,11 +1,8 @@
 # General settings
-minPercentOnline: 0.5
-minPlayersOnline: 1
-minPlayersOnlineBypassPercent: 4
 conquerIfWithoutNation: true
 conquerIfInNation: true
 costStartTownWar: 500
-costStartNationWar: 1500
+costStartNationWar: 1000
 costJoinNationWarAttackers: 500
 costJoinNationWarDefenders: 0
 secondBetweenAnnounceTimeLeft: 60
@@ -16,9 +13,26 @@ daysConqueredIfInNation: 7
 nationWarBlocksTransferEvent: 0.1
 townWarBlocksTransferPercent: 0.1
 
+# When people can wage war - This is for town wars
+# default one week
+cooldown-seconds-attackers-lose-attack-same-town: 604800
+# default ten minutes
+cooldown-seconds-attackers-lose-attack-different-town: 600
+# default two days
+cooldown-seconds-defenders-lose-attack-by-different-town: 172800
+# first number minumum online
+# second number is town size
+min-online-to-be-attacked-town-wars:
+  - 1, 1
+  - 2, 3
+  - 3, 5
+  - 4, 8
+  - 5, 12
+  - 6, 18
+
 # How to win the war
 tickLimitTownWar: 18000
-tickLimitNationWar: 36000
+tickLimitNationWar: 18000
 ticksToCaptureTown: 1200
 ticksUntilNoLongerInCombat: 300
 ticksWithoutAttackersOccupyingUntilDefendersWin: 400

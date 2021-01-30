@@ -9,7 +9,6 @@ import com.palmergames.compress.utils.FileNameUtils;
 import com.palmergames.paperlib.PaperLib;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -41,7 +40,7 @@ public class War {
     HashSet<Player> attackingPlayers = new HashSet<>();
     HashSet<Player> defendingPlayers = new HashSet<>();
 
-    TownWarBossBar warBossbar = new TownWarBossBar(this);
+    TownWarBossBar warBossbar;
 
     Town playerIteratorTown;
     // TODO: There has to be a better way
@@ -49,11 +48,18 @@ public class War {
 
     // TODO: Allow the nation of a town to participate in a town vs nation war
     public War(Town attackers, Town defenders) {
-        if (attackers.hasNation() && defenders.hasNation()) isNationWar = true;
+        //if (attackers.hasNation() && defenders.hasNation()) isNationWar = true;
+        isNationWar = false;
 
         this.warUUID = UUID.randomUUID();
         this.attackers = attackers;
         this.defenders = defenders;
+
+        if (isNationWar) {
+            warBossbar = new NationWarBossBar(this);
+        } else {
+            warBossbar = new TownWarBossBar(this);
+        }
 
         addTownsNationsToList();
         warBossbar.updateBossBar();
@@ -147,7 +153,7 @@ public class War {
             for (Map.Entry<Location, BlockData> key : blocksToRestore.get(tick).entrySet()) {
                 // Getting blocks is x [0 : 15] y [0 : 255] z [0 : 15]
                 // 1.17 negative y coordinates will be painful, but it works for now...
-                PaperLib.getChunkAtAsync(key.getKey()).thenAccept(chunk -> chunk.getBlock(key.getKey().getBlockX() & 0xF, key.getKey().getBlockY() & 0xFF, key.getKey().getBlockZ() & 0xF).setBlockData(key.getValue()));
+                PaperLib.getChunkAtAsync(key.getKey()).thenAccept(chunk -> chunk.getBlock(key.getKey().getBlockX() & 0xF, key.getKey().getBlockY() & 0xFF, key.getKey().getBlockZ() & 0xF).setBlockData(key.getValue(), false));
             }
         }
 
@@ -344,15 +350,12 @@ public class War {
     public boolean isAnAttackerInDefenderLand() {
         if (isNationWar) {
             for (Nation nation : nationsAttacking) {
-                for (Town town : nation.getTowns()) {
-                    for (Resident resident : town.getResidents()) {
-                        if (resident.getPlayer() == null || resident.getPlayer().isDead()) continue;
-                        if (TownyAPI.getInstance().getTown(resident.getPlayer().getLocation()) == defenders) {
-                            return true;
-                        }
+                for (Resident resident : nation.getResidents()) {
+                    if (resident.getPlayer() == null || resident.getPlayer().isDead()) continue;
+                    if (TownyAPI.getInstance().getTown(resident.getPlayer().getLocation()) == defenders) {
+                        return true;
                     }
                 }
-
             }
         } else {
             for (Resident resident : attackers.getResidents()) {
@@ -380,6 +383,12 @@ public class War {
         LocaleReader.send(player, setPlaceholders(message));
     }
 
+
+    public void messageGlobal(String message) {
+        message = setPlaceholders(message);
+
+        LocaleReader.sendToPlayers(Bukkit.getOnlinePlayers(), message);
+    }
     // We have methods to use and not use placeholders so we only call the expensive setPlaceholders method
     // once instead of twice!
     public void messageAll(String message) {
@@ -398,11 +407,9 @@ public class War {
         message = setPlaceholders(message);
         if (isNationWar) {
             for (Nation nation : nationsAttacking) {
-                for (Town town : nation.getTowns()) {
-                    for (Resident resident : town.getResidents()) {
-                        if (resident.getPlayer() == null) continue;
-                        LocaleReader.send(resident.getPlayer(), message);
-                    }
+                for (Resident resident : nation.getResidents()) {
+                    if (resident.getPlayer() == null) continue;
+                    LocaleReader.send(resident.getPlayer(), message);
                 }
             }
         } else {
@@ -421,11 +428,9 @@ public class War {
     public void messageDefendersWithoutPlaceholders(String message) {
         if (isNationWar) {
             for (Nation nation : nationsDefending) {
-                for (Town town : nation.getTowns()) {
-                    for (Resident resident : town.getResidents()) {
-                        if (resident.getPlayer() == null) continue;
-                        LocaleReader.send(resident.getPlayer(), message);
-                    }
+                for (Resident resident : nation.getResidents()) {
+                    if (resident.getPlayer() == null) continue;
+                    LocaleReader.send(resident.getPlayer(), message);
                 }
             }
         } else {
@@ -493,11 +498,9 @@ public class War {
     public void makeAttackersGlow() {
         if (isNationWar) {
             for (Nation nation : nationsAttacking) {
-                for (Town town : nation.getTowns()) {
-                    for (Resident resident : town.getResidents()) {
-                        if (resident.getPlayer() == null) continue;
-                        resident.getPlayer().setGlowing(true);
-                    }
+                for (Resident resident : nation.getResidents()) {
+                    if (resident.getPlayer() == null) continue;
+                    resident.getPlayer().setGlowing(true);
                 }
             }
         } else {
@@ -511,11 +514,9 @@ public class War {
     public void removeGlow() {
         if (isNationWar) {
             for (Nation nation : nationsAttacking) {
-                for (Town town : nation.getTowns()) {
-                    for (Resident resident : town.getResidents()) {
-                        if (resident.getPlayer() == null) continue;
-                        resident.getPlayer().setGlowing(false);
-                    }
+                for (Resident resident : nation.getResidents()) {
+                    if (resident.getPlayer() == null) continue;
+                    resident.getPlayer().setGlowing(false);
                 }
             }
         } else {

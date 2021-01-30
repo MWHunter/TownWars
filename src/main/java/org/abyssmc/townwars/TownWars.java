@@ -31,6 +31,13 @@ public final class TownWars extends JavaPlugin {
 
     private static BukkitAudiences adventure;
 
+    public static @NonNull BukkitAudiences adventure() {
+        if (adventure == null) {
+            throw new IllegalStateException("Tried to access Adventure when the plugin was disabled!");
+        }
+        return adventure;
+    }
+
     @Override
     public void onEnable() {
         plugin = this;
@@ -40,11 +47,14 @@ public final class TownWars extends JavaPlugin {
         saveDefaultConfig();
         ConfigHandler.plugin = this;
         ConfigHandler.config = getConfig();
+
         ConfigHandler.reload();
         LocaleReader.reload();
+        WarCooldownManager.reload();
 
         getCommand("war").setExecutor(new WarCommand());
         getServer().getPluginManager().registerEvents(new Events(), this);
+        getServer().getPluginManager().registerEvents(new WarCooldownManager(), this);
         tickWars();
 
         File warFolder = new File(getDataFolder() + File.separator + "wars");
@@ -79,12 +89,5 @@ public final class TownWars extends JavaPlugin {
                 war.tick();
             }
         }, 0, 1);
-    }
-
-    public static @NonNull BukkitAudiences adventure() {
-        if (adventure == null) {
-            throw new IllegalStateException("Tried to access Adventure when the plugin was disabled!");
-        }
-        return adventure;
     }
 }

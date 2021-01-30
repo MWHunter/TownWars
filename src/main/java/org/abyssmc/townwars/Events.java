@@ -17,7 +17,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockPhysicsEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
@@ -70,6 +69,7 @@ public class Events implements Listener {
         try {
             if (event.getTownBlock() == null) return;
             Town destroyTown = event.getTownBlock().getTown();
+
             if (TownWars.townsUnderSiege.containsKey(destroyTown)) {
                 Town breakerTown = towny.getDataSource().getResident(event.getPlayer().getName()).getTown();
                 War war = TownWars.townsUnderSiege.get(destroyTown);
