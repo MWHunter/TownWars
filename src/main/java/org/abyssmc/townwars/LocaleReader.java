@@ -235,7 +235,7 @@ public class LocaleReader {
         GLOBAL_DEFENDERS_WIN_TOWN_WAR = config.getString("global-defenders-win-town-war", "&f{DEFENDERS}&b defended against &f{ATTACKERS}");
         GLOBAL_TOWN_WAR_ENDS_PEACEFULLY = config.getString("global-town-war-ends-peacefully", "&f{ATTACKERS}&b have ended the war against &f{DEFENDERS}&b peacefully");
 
-        COOLDOWN_ATTACKERS_LOSE_ATTACK_SAME_TOWN = config.getString("cooldown-attackers-lose-attack-same-town", "&bYou cannot attack &f{DEFENDERS}&b against for &f{TIME}");
+        COOLDOWN_ATTACKERS_LOSE_ATTACK_SAME_TOWN = config.getString("cooldown-attackers-lose-attack-same-town", "&bYou cannot attack &f{DEFENDERS}&b again for &f{TIME}");
         COOLDOWN_ATTACKERS_LOSE_ATTACK_DIFFERENT_TOWN = config.getString("cooldown-attackers-lose-attack-different-town", "&bYou lost a siege and cannot attack for &f{TIME}");
         COOLDOWN_DEFENDERS_LOSE_ATTACK_BY_DIFFERENT_TOWN = config.getString("cooldown-defenders-lose-attack-by-different-town", "&f{DEFENDERS}&b lost a war and cannot be attacked for &f{TIME}");
 

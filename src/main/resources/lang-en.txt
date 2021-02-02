@@ -101,7 +101,7 @@ global-attackers-win-town-war: "&f{ATTACKERS}&b has conquered &f{DEFENDERS}"
 global-defenders-win-town-war: "&f{DEFENDERS}&b defended against &f{ATTACKERS}"
 global-town-war-ends-peacefully: "&f{ATTACKERS}&b have ended the war against &f{DEFENDERS}&b peacefully"
 
-cooldown-attackers-lose-attack-same-town: "&bYou cannot attack &f{DEFENDERS}&b against for &f{TIME}"
+cooldown-attackers-lose-attack-same-town: "&bYou cannot attack &f{DEFENDERS}&b again for &f{TIME}"
 cooldown-attackers-lose-attack-different-town: "&bYou lost a siege and cannot attack for &f{TIME}"
 cooldown-defenders-lose-attack-by-different-town: "&f{DEFENDERS}&b lost a war and cannot be attacked for &f{TIME}"
 

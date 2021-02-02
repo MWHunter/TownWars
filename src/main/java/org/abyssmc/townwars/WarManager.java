@@ -217,25 +217,38 @@ public class WarManager {
             return false;
         }
 
-        double lastWarLost = WarCooldownManager.getAttackerLastLost(attackers.getUUID(), defenders.getUUID());
+        double lastWarLost = WarCooldownManager.getAttackerLastLostSecondsAgo(attackers.getUUID(), defenders.getUUID());
 
-        if (lastWarLost > ConfigHandler.cooldownSecondsAttackersLoseAttackSameTown) {
+        if (lastWarLost < ConfigHandler.cooldownSecondsAttackersLoseAttackSameTown) {
             LocaleReader.send(player, LocaleReader.COOLDOWN_ATTACKERS_LOSE_ATTACK_SAME_TOWN
                     .replace("{DEFENDERS}", defenders.getName())
                     .replace("{TIME}", formatSeconds((int) (ConfigHandler.cooldownSecondsAttackersLoseAttackSameTown - lastWarLost))));
             return false;
         }
 
-        if (lastWarLost > ConfigHandler.cooldownSecondsAttackersLoseAttackDifferentTown) {
+        double lastWarLostOther = WarCooldownManager.getAttackerLostSecondsAgo(attackers.getUUID());
+
+        if (lastWarLostOther < ConfigHandler.cooldownSecondsAttackersLoseAttackDifferentTown) {
             LocaleReader.send(player, LocaleReader.COOLDOWN_ATTACKERS_LOSE_ATTACK_DIFFERENT_TOWN
-                    .replace("{TIME}", formatSeconds((int) (ConfigHandler.cooldownSecondsAttackersLoseAttackDifferentTown - lastWarLost));
+                    .replace("{TIME}", formatSeconds((int) (ConfigHandler.cooldownSecondsAttackersLoseAttackDifferentTown - lastWarLostOther))));
             return false;
         }
 
-        if (WarCooldownManager.getDefenderLostEpoch(defenders.getUUID()) > ConfigHandler.cooldownSecondsDefendersLoseAttackByDifferentTown) {
+        double lastDefenderWarLost = WarCooldownManager.getDefendersLostSecondsAgo(attackers.getUUID(), defenders.getUUID());
+
+        if (lastDefenderWarLost < ConfigHandler.cooldownSecondsDefendersLoseAttackByDifferentTown) {
             LocaleReader.send(player, LocaleReader.COOLDOWN_DEFENDERS_LOSE_ATTACK_BY_DIFFERENT_TOWN
                     .replace("{DEFENDERS}", defenders.getName())
-                    .replace("{TIME}", formatSeconds((int) (ConfigHandler.cooldownSecondsAttackersLoseAttackSameTown - lastWarLost))));
+                    .replace("{TIME}", formatSeconds((int) (ConfigHandler.cooldownSecondsAttackersLoseAttackSameTown - lastDefenderWarLost))));
+            return false;
+        }
+
+        double lastDefenderWarLostDiffTown = WarCooldownManager.getDefenderLostSecondsAgo(defenders.getUUID());
+
+        if (lastDefenderWarLostDiffTown < ConfigHandler.cooldownSecondsDefendersLoseAttackByDifferentTown) {
+            LocaleReader.send(player, LocaleReader.COOLDOWN_DEFENDERS_LOSE_ATTACK_BY_DIFFERENT_TOWN
+                    .replace("{DEFENDERS}", defenders.getName())
+                    .replace("{TIME}", formatSeconds((int) (ConfigHandler.cooldownSecondsDefendersLoseAttackByDifferentTown - lastDefenderWarLostDiffTown))));
             return false;
         }
 
@@ -613,7 +626,7 @@ public class WarManager {
 
                 war.attackers.getAccount().deposit(ConfigHandler.costStartTownWar, LocaleReader.TOWN_WAR_DEPOSIT);
 
-                WarCooldownManager.setDefenderLost(war.defenders.getUUID());
+                WarCooldownManager.setDefenderLost(war.attackers.getUUID(), war.defenders.getUUID());
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -663,20 +676,30 @@ public class WarManager {
         }
     }
 
-    public static String formatSeconds(int secondsLeft) {
+    public static String formatSeconds(int numSeconds) {
         String timeLeftString = "";
 
-        int newSeconds = secondsLeft % 60;
-        int newHours = secondsLeft / 60;
-        int newMinutes = newHours % 60;
-        newHours = newHours / 60;
+        // Copied from https://stackoverflow.com/a/21323783
+        int numWeeks = numSeconds / (7 * 24 * 60 * 60);
+        numSeconds -= numWeeks * 7 * 24 * 60 * 60;
+        int numDays = numSeconds / (24 * 60 * 60);
+        numSeconds -= numDays * 24 * 60 * 60;
+        int numHours = numSeconds / (60 * 60);
+        numSeconds -= numHours * 60 * 60;
+        int numMinutes = numSeconds / 60;
+        numSeconds -= numMinutes * 60;
 
-        if (newHours == 1) timeLeftString += newHours + " hours ";
-        if (newHours > 1) timeLeftString += newHours + " hours ";
-        if (newMinutes == 1) timeLeftString += newMinutes + " minute ";
-        if (newMinutes > 1) timeLeftString += newMinutes + " minutes ";
-        if (newSeconds == 1) timeLeftString += newSeconds + " second";
-        if (newSeconds > 1) timeLeftString += newSeconds + " seconds";
+        // There SHOULD be a better way to do this, but I can't find it.
+        if (numWeeks == 1) timeLeftString += numWeeks + " week ";
+        if (numWeeks > 1) timeLeftString += numWeeks + " weeks ";
+        if (numDays == 1) timeLeftString += numDays + " days ";
+        if (numDays > 1) timeLeftString += numDays + " day ";
+        if (numHours == 1) timeLeftString += numHours + " hour ";
+        if (numHours > 1) timeLeftString += numHours + " hours ";
+        if (numMinutes == 1) timeLeftString += numMinutes + " minute ";
+        if (numMinutes > 1) timeLeftString += numMinutes + " minutes ";
+        if (numSeconds == 1) timeLeftString += numSeconds + " second";
+        if (numSeconds > 1) timeLeftString += numSeconds + " seconds";
         if (timeLeftString.endsWith(" ")) timeLeftString = timeLeftString.substring(0, timeLeftString.length() - 1);
 
         return timeLeftString;

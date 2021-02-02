@@ -30,7 +30,7 @@ public class ConfigHandler {
     // when people can war
     public static int cooldownSecondsAttackersLoseAttackSameTown = 604800; //  one week
     public static int cooldownSecondsAttackersLoseAttackDifferentTown = 600; // 10 minutes
-    public static int cooldownSecondsDefendersLoseAttackBySameTown = 604800; // one week
+    public static int cooldownSecondsDefendersLoseAttackBySameTown = 86400; // one day
     public static int cooldownSecondsDefendersLoseAttackByDifferentTown = 172800; // two days
 
     // How to win the war
@@ -70,7 +70,8 @@ public class ConfigHandler {
         // when people can war
         cooldownSecondsAttackersLoseAttackSameTown = config.getInt("cooldown-seconds-attackers-lose-attack-same-town", 604800); //  one week
         cooldownSecondsAttackersLoseAttackDifferentTown = config.getInt("cooldown-seconds-attackers-lose-attack-different-town", 600); // 10 minutes
-        cooldownSecondsDefendersLoseAttackByDifferentTown = config.getInt("cooldown-seconds-defenders-lose-attack-by-different-town", 172800); // two days
+        cooldownSecondsDefendersLoseAttackBySameTown = config.getInt("cooldown-seconds-defenders-lose-attack-by-same-town", 172800); // one day
+        cooldownSecondsDefendersLoseAttackByDifferentTown = config.getInt("cooldown-seconds-defenders-lose-attack-by-different-town", 86400); // two days
 
         // How to win the war
         tickLimitTownWar = config.getInt("tickLimitTownWar", 18000);

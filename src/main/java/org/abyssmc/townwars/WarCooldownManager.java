@@ -46,7 +46,7 @@ public class WarCooldownManager implements Listener {
 
                 config = YamlConfiguration.loadConfiguration(townFile);
                 config.set("attacker-lost-towns", Collections.EMPTY_LIST);
-                config.set("defender-lost-epoch", -1);
+                config.set("defender-lost-towns", Collections.EMPTY_LIST);
 
                 Bukkit.getScheduler().runTaskAsynchronously(TownWars.plugin, () -> {
                     try {
@@ -66,8 +66,7 @@ public class WarCooldownManager implements Listener {
         }
     }
 
-    // Y2k38 - use double not int
-    public static double getAttackerLostEpoch(UUID attacker) {
+    public static double getAttackerLostSecondsAgo(UUID attacker) {
         List<String> attackerLosses = getTownConfig(attacker).getStringList("attacker-lost-towns");
 
         long lastLoss = -1;
@@ -78,26 +77,53 @@ public class WarCooldownManager implements Listener {
             if (thisLoss > lastLoss) lastLoss = thisLoss;
         }
 
-        return lastLoss;
+        return Instant.now().getEpochSecond() - lastLoss;
     }
 
-    public static long getDefenderLostEpoch(UUID defender) {
-        return getTownConfig(defender).getLong("defender-lost-epoch");
+    public static double getDefenderLostSecondsAgo(UUID defender) {
+        List<String> attackerLosses = getTownConfig(defender).getStringList("defender-lost-towns");
+
+        long lastLoss = -1;
+        for (String string : attackerLosses) {
+            String[] stringSplit = string.split(",");
+            long thisLoss = Long.parseLong(stringSplit[1]);
+
+            if (thisLoss > lastLoss) lastLoss = thisLoss;
+        }
+
+        return Instant.now().getEpochSecond() - lastLoss;
     }
 
-    public static double getAttackerLastLost(UUID attacker, UUID defender) {
+    public static double getAttackerLastLostSecondsAgo(UUID attacker, UUID defender) {
         List<String> attackerLosses = getTownConfig(attacker).getStringList("attacker-lost-towns");
 
+        long loss = -1;
         for (String string : attackerLosses) {
             String[] stringSplit = string.split(",");
             String uuid = stringSplit[0];
 
             if (uuid.equals(defender.toString())) {
-                return Long.parseLong(stringSplit[1]);
+                loss = Long.parseLong(stringSplit[1]);
             }
         }
 
-        return -1;
+        return Instant.now().getEpochSecond() - loss;
+    }
+
+    public static double getDefendersLostSecondsAgo(UUID attacker, UUID defender) {
+        List<String> defenderLosses = getTownConfig(defender).getStringList("defender-lost-towns");
+
+        long loss = -1;
+        for (String string : defenderLosses) {
+            String[] stringSplit = string.split(",");
+            String uuid = stringSplit[0];
+
+            if (uuid.equals(attacker.toString())) {
+                loss = Long.parseLong(stringSplit[1]);
+            }
+        }
+
+        return Instant.now().getEpochSecond() - loss;
     }
 
     public static void setAttackerLost(UUID attacker, UUID defender) {
@@ -118,9 +144,14 @@ public class WarCooldownManager implements Listener {
         });
     }
 
-    public static void setDefenderLost(UUID defender) {
+    public static void setDefenderLost(UUID attacker, UUID defender) {
         FileConfiguration defenderConfig = getTownConfig(defender);
-        defenderConfig.set("defender-lost-epoch", Instant.now().getEpochSecond());
+        List<String> defenderLosses = defenderConfig.getStringList("defender-lost-towns");
+
+        defenderLosses.removeIf(s -> s.startsWith(attacker.toString()));
+        defenderLosses.add(attacker + "," + Instant.now().getEpochSecond());
+
+        defenderConfig.set("defender-lost-towns", defenderLosses);
 
         Bukkit.getScheduler().runTaskAsynchronously(TownWars.plugin, () -> {
             try {

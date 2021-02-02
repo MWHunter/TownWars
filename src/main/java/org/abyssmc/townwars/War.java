@@ -65,8 +65,10 @@ public class War {
         warBossbar.updateBossBar();
         warBossbar.sendEveryoneBossBars();
 
-        attackers.setAdminEnabledPVP(true);
-        defenders.setAdminEnabledPVP(true);
+        attackers.setAdminDisabledPVP(true);
+        defenders.setAdminDisabledPVP(true);
+        attackers.setAdminEnabledPVP(false);
+        defenders.setAdminEnabledPVP(false);
 
         makeAttackersGlow();
     }
@@ -85,6 +87,12 @@ public class War {
         boolean attackersInCombat = Math.abs(tick - lastDamageTakenByAttackersTick) < ConfigHandler.ticksUntilNoLongerInCombat;
 
         if (tick > ConfigHandler.ticksBeforeWarBegins) {
+            // This shouldn't cause lag issues.  It's just setting a boolean, nothing else.
+            attackers.setAdminEnabledPVP(true);
+            defenders.setAdminEnabledPVP(true);
+            attackers.setAdminDisabledPVP(false);
+            defenders.setAdminDisabledPVP(false);
+
             if (attackersInCombat && attackersOccupyingDefenders) {
                 currentState = WarState.OCCUPIED_IN_COMBAT;
                 ticksWithoutAttackersOccupying = 0;

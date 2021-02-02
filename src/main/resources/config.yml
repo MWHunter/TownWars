@@ -18,8 +18,10 @@ townWarBlocksTransferPercent: 0.1
 cooldown-seconds-attackers-lose-attack-same-town: 604800
 # default ten minutes
 cooldown-seconds-attackers-lose-attack-different-town: 600
-# default two days
-cooldown-seconds-defenders-lose-attack-by-different-town: 172800
+# default three days
+cooldown-seconds-defenders-lose-attack-by-same-town: 259200
+# default one day
+cooldown-seconds-defenders-lose-attack-by-different-town: 86400
 # first number minumum online
 # second number is town size
 min-online-to-be-attacked-town-wars:
