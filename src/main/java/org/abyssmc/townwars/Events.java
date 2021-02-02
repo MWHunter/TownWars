@@ -332,9 +332,6 @@ public class Events implements Listener {
         }
     }
 
-    @EventHandler
-    public void outlawTeleportEvent(TownyBuildEvent)
-
     // Give players bossbars if they need it
     @EventHandler
     public void playerJoinEvent(PlayerJoinEvent event) {
