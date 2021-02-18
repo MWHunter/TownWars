@@ -21,7 +21,16 @@ cooldown-seconds-attackers-lose-attack-different-town: 600
 # default three days
 cooldown-seconds-defenders-lose-attack-by-same-town: 259200
 # default one day
+cooldown-seconds-defenders-lose-attack-by-different-nation: 86400
+# default one week
+cooldown-seconds-attackers-lose-attack-same-nation: 604800
+# default ten minutes
+cooldown-seconds-attackers-lose-attack-different-nation: 600
+# default three days
+cooldown-seconds-defenders-lose-attack-by-same-nation: 259200
+# default one day
 cooldown-seconds-defenders-lose-attack-by-different-town: 86400
+
 # first number minumum online
 # second number is town size
 min-online-to-be-attacked-town-wars:
@@ -31,6 +40,17 @@ min-online-to-be-attacked-town-wars:
   - 4, 8
   - 5, 12
   - 6, 18
+min-online-to-be-attacked-nation-wars:
+  - 1, 1
+  - 2, 3
+  - 3, 5
+  - 4, 8
+  - 5, 12
+  - 6, 18
+  - 7, 24
+  - 8, 32
+  - 9, 40
+  - 10, 50
 
 # How to win the war
 tickLimitTownWar: 18000
@@ -83,3 +103,18 @@ allowed-switches-in-war:
   - POLISHED_BLACKSTONE_PRESSURE_PLATE
   - LIGHT_WEIGHTED_PRESSURE_PLATE
   - HEAVY_WEIGHTED_PRESSURE_PLATE
+blacklisted-respawn-blocks:
+  - bedrock
+  - cactus
+  - flowing_lava
+  - flowing_water
+  - lava
+  - oak_leaves
+  - spruce_leaves
+  - birch_leaves
+  - jungle_leaves
+  - acacia_leaves
+  - dark_oak_leaves
+  - stationary_lava
+  - stationary_water
+  - water

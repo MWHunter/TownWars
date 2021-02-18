@@ -2,16 +2,18 @@ package org.abyssmc.townwars;
 
 import com.palmergames.bukkit.towny.TownyAPI;
 import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
-import com.palmergames.bukkit.towny.object.Nation;
-import com.palmergames.bukkit.towny.object.Resident;
-import com.palmergames.bukkit.towny.object.Town;
+import com.palmergames.bukkit.towny.exceptions.TownyException;
+import com.palmergames.bukkit.towny.object.*;
 import com.palmergames.compress.utils.FileNameUtils;
 import com.palmergames.paperlib.PaperLib;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.io.File;
 import java.io.IOException;
@@ -29,31 +31,29 @@ public class War {
     // Don't remove combat log on login to stop exploits.
     public int lastDamageTakenByAttackersTick = Integer.MIN_VALUE / 4;
     public WarState currentState = WarState.PREWAR;
+    public int attackerLives;
+    public int defenderLives;
     HashSet<Nation> nationsDefending = new HashSet<>();
     HashSet<Nation> nationsAttacking = new HashSet<>();
-    // TODO: WE NEED A HASHMAP HERE BECAUSE EVERY TOWN IN A NATION WAR CAN BE SIEGED!
-    int ticksOccupiedWithoutCombat = 0;
-    int ticksWithoutAttackersOccupying = 0;
     int tick = 0;
-
     // TODO: Cleanup code by using this list instead of iterating upon loops and loops
     HashSet<Player> attackingPlayers = new HashSet<>();
     HashSet<Player> defendingPlayers = new HashSet<>();
-
     TownWarBossBar warBossbar;
 
-    Town playerIteratorTown;
-    // TODO: There has to be a better way
+    HashSet<Player> playersInitialLives = new HashSet<>();
+
+    HashMap<Player, Location> playerLocationsWhenWarBegan = new HashMap<>();
+
     HashMap<Integer, HashMap<Location, BlockData>> blocksToRestore = new HashMap<>();
 
-    // TODO: Allow the nation of a town to participate in a town vs nation war
     public War(Town attackers, Town defenders) {
-        //if (attackers.hasNation() && defenders.hasNation()) isNationWar = true;
-        isNationWar = false;
-
+        if (attackers.hasNation() && defenders.hasNation()) isNationWar = true;
         this.warUUID = UUID.randomUUID();
         this.attackers = attackers;
         this.defenders = defenders;
+
+        addTownsNationsToList();
 
         if (isNationWar) {
             warBossbar = new NationWarBossBar(this);
@@ -61,7 +61,6 @@ public class War {
             warBossbar = new TownWarBossBar(this);
         }
 
-        addTownsNationsToList();
         warBossbar.updateBossBar();
         warBossbar.sendEveryoneBossBars();
 
@@ -71,76 +70,79 @@ public class War {
         defenders.setAdminEnabledPVP(false);
 
         makeAttackersGlow();
+
+        save(true);
     }
 
     // Allow loading from a saved war
     public War(File file) {
+        // TODO: Fix this when transitioning to a kill based system
         load(file);
+
+        addTownsNationsToList();
+        warBossbar.updateBossBar();
+        warBossbar.sendEveryoneBossBars();
     }
 
     public void tick() {
-        // save war info every minute, just in case the server crashes
-        // This also saves everything immediately
-        if (tick++ % 1200 == 0) save(true);
+        if (++tick > ConfigHandler.ticksBeforeWarBegins) {
+            if (tick == ConfigHandler.ticksBeforeWarBegins + 1) {
+                int largerTeam = getOnlineAttackers().size();
+                int temp = getOnlineDefenders().size();
 
-        boolean attackersOccupyingDefenders = isAnAttackerInDefenderLand();
-        boolean attackersInCombat = Math.abs(tick - lastDamageTakenByAttackersTick) < ConfigHandler.ticksUntilNoLongerInCombat;
+                if (largerTeam < temp) largerTeam = temp;
 
-        if (tick > ConfigHandler.ticksBeforeWarBegins) {
+                attackerLives = (int) (largerTeam * ConfigHandler.livesMultiplier) - getOnlineAttackers().size();
+                defenderLives = (int) (largerTeam * ConfigHandler.livesMultiplier) - getOnlineDefenders().size();
+
+                getOnlineAttackers().forEach(resident -> playersInitialLives.add(resident.getPlayer()));
+                getOnlineDefenders().forEach(resident -> playersInitialLives.add(resident.getPlayer()));
+
+                if (isNationWar) {
+                    messageAll(LocaleReader.NATION_WAR_PREWAR_ENDED);
+                } else {
+                    messageAll(LocaleReader.TOWN_WAR_PREWAR_ENDED);
+                }
+            }
+
+            currentState = WarState.WAR;
+
+            if (tick == ConfigHandler.ticksBeforeWarBegins + 1) {
+                for (Resident resident : getOnlineAttackers()) {
+                    playerLocationsWhenWarBegan.put(resident.getPlayer(), resident.getPlayer().getLocation());
+                }
+
+                for (Resident resident : getOnlineDefenders()) {
+                    playerLocationsWhenWarBegan.put(resident.getPlayer(), resident.getPlayer().getLocation());
+                }
+            }
+
             // This shouldn't cause lag issues.  It's just setting a boolean, nothing else.
             attackers.setAdminEnabledPVP(true);
             defenders.setAdminEnabledPVP(true);
             attackers.setAdminDisabledPVP(false);
             defenders.setAdminDisabledPVP(false);
 
-            if (attackersInCombat && attackersOccupyingDefenders) {
-                currentState = WarState.OCCUPIED_IN_COMBAT;
-                ticksWithoutAttackersOccupying = 0;
+            if (attackerLives < 0) {
+                WarManager.defendersWinWar(this);
+                return;
+            }
 
-            } else if (attackersOccupyingDefenders) {
-                currentState = WarState.CAPTURING;
-                ticksWithoutAttackersOccupying = 0;
-                ticksOccupiedWithoutCombat++;
-
-                if (ticksOccupiedWithoutCombat > ConfigHandler.ticksToCaptureTown) {
-                    WarManager.attackersWinWar(this);
-                    return;
-                }
-
-            } else {
-                currentState = WarState.ATTACKERS_MISSING;
-                ticksOccupiedWithoutCombat = 0;
-
-                if (++ticksWithoutAttackersOccupying > ConfigHandler.ticksWithoutAttackersOccupyingUntilDefendersWin) {
-                    WarManager.defendersWinWar(this);
-                    return;
-                }
-
-                if (ticksWithoutAttackersOccupying % ConfigHandler.ticksBetweenNotOccupyingWarning == 0) {
-                    if (ConfigHandler.ticksWithoutAttackersOccupyingUntilDefendersWin - ticksWithoutAttackersOccupying < 20) {
-                        // It gets rounded down and that's not good.
-                        return;
-                    }
-
-                    messageAttackers(LocaleReader.NOT_OCCUPYING_WARNING.replace("{SECONDS_NOT_OCCUPIED_UNTIL_FAIL}", WarManager.formatSeconds((ConfigHandler.ticksWithoutAttackersOccupyingUntilDefendersWin - ticksWithoutAttackersOccupying) / 20)));
-                }
+            if (defenderLives < 0) {
+                WarManager.attackersWinWar(this);
+                return;
             }
 
             if (isNationWar) {
                 if (tick > ConfigHandler.tickLimitNationWar) {
-                    WarManager.defendersWinWar(this);
+                    WarManager.forceEnd(this);
                     return;
                 }
             } else {
                 if (tick > ConfigHandler.tickLimitTownWar) {
-                    WarManager.defendersWinWar(this);
+                    WarManager.forceEnd(this);
                     return;
                 }
-            }
-
-            if (!isNationWar && ticksWithoutAttackersOccupying > ConfigHandler.ticksWithoutAttackersOccupyingUntilDefendersWin) {
-                WarManager.defendersWinWar(this);
-                return;
             }
 
             // It shouldn't announce when the war is done and when it just starts, so it is last
@@ -148,13 +150,19 @@ public class War {
                 if (isNationWar) {
                     messageAll(LocaleReader.NATION_WAR_TIME_LEFT);
                 } else {
-                    messageAll(LocaleReader.TOWN_WAR_TIME_LEFT
-                            .replace("{SECONDS_FOR_ATTACKER_WIN}", WarManager.formatSeconds((ConfigHandler.ticksToCaptureTown - ticksOccupiedWithoutCombat) / 20)));
+                    messageAll(LocaleReader.TOWN_WAR_TIME_LEFT);
                 }
             }
         }
 
-        warBossbar.updateBossBar();
+        if (warBossbar != null) {
+            warBossbar.updateBossBar();
+        }
+
+        // save war info every minute, just in case the server crashes
+        // Save after ending war to try and stop race conditions
+        // TODO: Actually fix this race condition
+        if (tick % 1200 == 0) save(true);
 
         // Most likely to error, so do this last
         if (blocksToRestore.containsKey(tick)) {
@@ -220,6 +228,8 @@ public class War {
             defenderWantsPeace = warConfiguration.getBoolean("defenderWantsPeace");
             lastPeaceRequestEpoch = warConfiguration.getInt("lastPeaceRequestEpoch");
             tick = warConfiguration.getInt("tick");
+            attackerLives = warConfiguration.getInt("attackerLives");
+            defenderLives = warConfiguration.getInt("defenderLives");
 
             addTownsNationsToList();
 
@@ -227,7 +237,14 @@ public class War {
             e.printStackTrace();
         }
 
-        WarManager.setupWar(this, false);
+        WarManager.setupWar(this);
+
+        if (isNationWar) {
+            warBossbar = new NationWarBossBar(this);
+        } else {
+            warBossbar = new TownWarBossBar(this);
+        }
+
         warBossbar.sendEveryoneBossBars();
 
         List<String> blocksToRollback = warConfiguration.getStringList("blocksToRollback");
@@ -272,6 +289,8 @@ public class War {
         warConfiguration.set("defenderWantsPeace", defenderWantsPeace);
         warConfiguration.set("lastPeaceRequestEpoch", lastPeaceRequestEpoch);
         warConfiguration.set("tick", tick);
+        warConfiguration.set("attackerLives", attackerLives);
+        warConfiguration.set("defenderLives", defenderLives);
 
         // Saving blocks to roll back
         List<String> blocksToRollback = new ArrayList<>();
@@ -355,37 +374,59 @@ public class War {
         blocksToRestore.get(restoreTick).put(location, block);
     }
 
-    public boolean isAnAttackerInDefenderLand() {
-        if (isNationWar) {
-            for (Nation nation : nationsAttacking) {
-                for (Resident resident : nation.getResidents()) {
-                    if (resident.getPlayer() == null || resident.getPlayer().isDead()) continue;
-                    if (TownyAPI.getInstance().getTown(resident.getPlayer().getLocation()) == defenders) {
-                        return true;
-                    }
-                }
-            }
-        } else {
-            for (Resident resident : attackers.getResidents()) {
-                if (resident.getPlayer() == null || resident.getPlayer().isDead()) continue;
-                playerIteratorTown = TownyAPI.getInstance().getTown(resident.getPlayer().getLocation());
-                if (playerIteratorTown != null && playerIteratorTown == defenders) {
-                    return true;
-                }
-            }
+    public void attackerIsDead(Resident player, PlayerDeathEvent event) {
+        new Error().printStackTrace();
+        attackerLives--;
+
+        event.setKeepInventory(true);
+        event.setKeepLevel(true);
+        event.getDrops().clear();
+        event.setDroppedExp(0);
+
+        try {
+            Coord coord = defenders.getHomeBlock().getCoord();
+            int x = coord.getX();
+            int z = coord.getZ();
+
+
+        } catch (TownyException e) {
+            e.printStackTrace();
         }
-        return false;
+
     }
 
-    // TODO: This really isn't needed after new system
-    // TODO: What do I do?
-    public void attackerIsDead(Resident player) {
-        ticksOccupiedWithoutCombat = 0;
+    public void defenderIsDead(Resident player, PlayerDeathEvent event) {
+        new Error().printStackTrace();
+        defenderLives--;
+
+        event.setKeepInventory(true);
+        event.setKeepLevel(true);
+        event.getDrops().clear();
+        event.setDroppedExp(0);
     }
 
-    public void defenderHasDied(Resident player) {
-        // TODO: Give them potions or respawn kit of basic tools so they can't be spawn killed/camped
-    }
+    /*public void addRandomTeleport(Location location, int radius, int donutRadius) {
+        int newX = location.getBlockX() + ((donutRadius + random.nextInt(radius - donutRadius)) * (random.nextBoolean() ? 1 : -1));
+        int newZ = location.getBlockZ() + ((donutRadius + random.nextInt(radius - donutRadius)) * (random.nextBoolean() ? 1 : -1));
+
+        // Try again with larger radius
+        if (TownyAPI.getInstance().getTownBlock(location).hasTown()) {
+            addRandomTeleport(location, radius + 8, donutRadius + 8);
+            return;
+        }
+
+        PaperLib.getChunkAtAsync(location.getWorld(), newX, newZ).thenAccept(chunk -> {
+            Block highBlock = location.getWorld().getHighestBlockAt(newX & 0xF, newZ & 0xF);
+            if (TownWars.disallowedRTPBlocks.contains(highBlock.getType())) {
+                addRandomTeleport(location, radius + 8, donutRadius + 8);
+                return;
+            }
+
+            synchronized (randomTeleports) {
+                randomTeleports.add(new Location(location.getWorld(), newX, highBlock.getY() + 1, newZ));
+            }
+        });
+    }*/
 
     public void messagePlayer(Player player, String message) {
         LocaleReader.send(player, setPlaceholders(message));
@@ -397,92 +438,71 @@ public class War {
 
         LocaleReader.sendToPlayers(Bukkit.getOnlinePlayers(), message);
     }
-    // We have methods to use and not use placeholders so we only call the expensive setPlaceholders method
-    // once instead of twice!
-    public void messageAll(String message) {
-        message = setPlaceholders(message);
 
-        messageAttackersWithoutPlaceholders(message);
-        messageDefendersWithoutPlaceholders(message);
+    public void messageAll(String message) {
+        messageAttackers(message);
+        messageDefenders(message);
     }
 
     public void messageAttackers(String message) {
         message = setPlaceholders(message);
-        messageAttackersWithoutPlaceholders(message);
+
+        for (Resident resident : getOnlineAttackers()) {
+            LocaleReader.send(resident.getPlayer(), message);
+        }
     }
 
-    public void messageAttackersWithoutPlaceholders(String message) {
+    public void messageAttackingNation(String message) {
         message = setPlaceholders(message);
-        if (isNationWar) {
-            for (Nation nation : nationsAttacking) {
-                for (Resident resident : nation.getResidents()) {
-                    if (resident.getPlayer() == null) continue;
-                    LocaleReader.send(resident.getPlayer(), message);
-                }
-            }
-        } else {
-            for (Resident resident : attackers.getResidents()) {
-                if (resident.getPlayer() == null) continue;
-                LocaleReader.send(resident.getPlayer(), message);
-            }
+
+        for (Resident resident : getAttackingNation().getResidents()) {
+            if (resident.getPlayer() == null) continue;
+            LocaleReader.send(resident.getPlayer(), message);
         }
     }
 
     public void messageDefenders(String message) {
         message = setPlaceholders(message);
-        messageDefendersWithoutPlaceholders(message);
+
+        for (Resident resident : getOnlineDefenders()) {
+            LocaleReader.send(resident.getPlayer(), message);
+        }
     }
 
-    public void messageDefendersWithoutPlaceholders(String message) {
-        if (isNationWar) {
-            for (Nation nation : nationsDefending) {
-                for (Resident resident : nation.getResidents()) {
-                    if (resident.getPlayer() == null) continue;
-                    LocaleReader.send(resident.getPlayer(), message);
-                }
-            }
-        } else {
-            for (Resident resident : defenders.getResidents()) {
-                if (resident.getPlayer() == null) continue;
-                LocaleReader.send(resident.getPlayer(), message);
-            }
+    public void messageDefendingNation(String message) {
+        message = setPlaceholders(message);
+
+        for (Resident resident : getDefendingNation().getResidents()) {
+            if (resident.getPlayer() == null) continue;
+            LocaleReader.send(resident.getPlayer(), message);
         }
     }
 
     public void messageAttackingAllies(String message) {
         message = setPlaceholders(message);
-        for (Nation nation : nationsAttacking) {
-            for (Town town : nation.getTowns()) {
-                if (town == attackers) continue;
 
-                for (Resident resident : town.getResidents()) {
-                    if (resident.getPlayer() == null) continue;
-                    LocaleReader.send(resident.getPlayer(), message);
-                }
+        for (Nation nation : nationsAttacking) {
+            if (nation == getAttackingNation()) continue;
+
+            for (Resident resident : nation.getResidents()) {
+                if (resident.getPlayer() == null) continue;
+                LocaleReader.send(resident.getPlayer(), message);
             }
         }
     }
 
     public void messageDefendingAllies(String message) {
         message = setPlaceholders(message);
-        for (Nation nation : nationsAttacking) {
-            for (Town town : nation.getTowns()) {
-                if (town == attackers) continue;
 
-                for (Resident resident : town.getResidents()) {
-                    if (resident.getPlayer() == null) continue;
-                    LocaleReader.send(resident.getPlayer(), message);
-                }
+        for (Nation nation : nationsDefending) {
+            if (nation == getDefendingNation()) continue;
+            for (Resident resident : nation.getResidents()) {
+                if (resident.getPlayer() == null) continue;
+                LocaleReader.send(resident.getPlayer(), message);
             }
         }
     }
 
-    public double calculateTotalSpentByAttackers() {
-        double cost = ConfigHandler.costStartNationWar;
-        cost += (nationsAttacking.size() - 1) * ConfigHandler.costJoinNationWarAttackers;
-
-        return cost;
-    }
 
     // Shouldn't stacktrace if this is a nation war
     public Nation getAttackingNation() {
@@ -503,7 +523,11 @@ public class War {
         }
     }
 
+    // TODO: Should attackers and defenders glow?
     public void makeAttackersGlow() {
+        /*for (Resident resident : getOnlineAttackers()) {
+
+        }
         if (isNationWar) {
             for (Nation nation : nationsAttacking) {
                 for (Resident resident : nation.getResidents()) {
@@ -516,11 +540,11 @@ public class War {
                 if (resident.getPlayer() == null) continue;
                 resident.getPlayer().setGlowing(true);
             }
-        }
+        }*/
     }
 
     public void removeGlow() {
-        if (isNationWar) {
+        /*if (isNationWar) {
             for (Nation nation : nationsAttacking) {
                 for (Resident resident : nation.getResidents()) {
                     if (resident.getPlayer() == null) continue;
@@ -532,13 +556,69 @@ public class War {
                 if (resident.getPlayer() == null) continue;
                 resident.getPlayer().setGlowing(false);
             }
-        }
+        }*/
     }
+
+    public List<Resident> getOnlineAttackers() {
+        List<Resident> residents;
+        if (isNationWar) {
+            residents = new ArrayList<>();
+            for (Nation nation : nationsAttacking) {
+                for (Resident resident : nation.getResidents()) {
+                    if (resident.getPlayer() == null) continue;
+                    residents.add(resident);
+                }
+            }
+
+        } else {
+            residents = attackers.getResidents();
+            residents.removeIf(resident -> resident.getPlayer() == null);
+        }
+        return residents;
+    }
+
+    public List<Resident> getOnlineDefenders() {
+        List<Resident> residents;
+        if (isNationWar) {
+            residents = new ArrayList<>();
+            for (Nation nation : nationsDefending) {
+                for (Resident resident : nation.getResidents()) {
+                    if (resident.getPlayer() == null) continue;
+                    residents.add(resident);
+                }
+            }
+
+        } else {
+            residents = defenders.getResidents();
+            residents.removeIf(resident -> resident.getPlayer() == null);
+        }
+        return residents;
+    }
+
+    public void playerJoinListener(Player player) {
+        // This means their life was already deducted
+        if (playersInitialLives.contains(player)) return;
+
+        getOnlineAttackers().forEach(resident -> {
+            if (resident.getPlayer() == player) {
+                if (attackerLives > 0) {
+                    attackerLives -= 1;
+                }
+            }
+        });
+
+        getOnlineDefenders().forEach(resident -> {
+            if (resident.getPlayer() == player) {
+                if (attackerLives > 0) {
+                    attackerLives -= 1;
+                }
+            }
+        });
+    }
+
 
     public enum WarState {
         PREWAR,
-        OCCUPIED_IN_COMBAT,
-        CAPTURING,
-        ATTACKERS_MISSING
+        WAR
     }
 }

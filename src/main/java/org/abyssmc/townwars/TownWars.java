@@ -13,21 +13,19 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.HashSet;
 
-// TODO: Force players to enemy all enemies (nation wars)
 // TODO: Add bstats
 // TODO: Limit wars players can enter
-// TODO: Cooldown after losing a war
 // TODO: Allow breaking chests? (should we?) (don't drop items)
-// TODO: Require some Towny permission for starting a war.
-// TODO: Confirm cost to join wars
 // TODO: Long term, add ability to disable economy part entirely
 public final class TownWars extends JavaPlugin {
-    public static HashSet<War> currentWars = new HashSet<>();
+    public static final HashSet<War> currentWars = new HashSet<>();
     public static HashMap<Town, War> townsUnderSiege = new HashMap<>();
     public static Plugin plugin;
-    public static HashMap<Nation, HashSet<War>> nationCurrentNationWars = new HashMap<>();
+    // These are the wars that a nation is in... it's just a cache to speed up events.
+    public static HashMap<Nation, HashSet<War>> warsListForEachNation = new HashMap<>();
     public static HashSet<Material> allowedSwitches = new HashSet<>();
     public static HashSet<Material> disallowedBlocksBroken = new HashSet<>();
+    public static HashSet<Material> disallowedRTPBlocks = new HashSet<>();
 
     private static BukkitAudiences adventure;
 
@@ -50,11 +48,14 @@ public final class TownWars extends JavaPlugin {
 
         ConfigHandler.reload();
         LocaleReader.reload();
-        WarCooldownManager.reload();
+        TownWarCooldownManager.reload();
+        NationWarCooldownManager.reload();
+        Events.clearLists();
 
-        getCommand("war").setExecutor(new WarCommand());
+        getCommand("war").setExecutor(new CommandHandler());
         getServer().getPluginManager().registerEvents(new Events(), this);
-        getServer().getPluginManager().registerEvents(new WarCooldownManager(), this);
+        getServer().getPluginManager().registerEvents(new TownWarCooldownManager(), this);
+        getServer().getPluginManager().registerEvents(new NationWarCooldownManager(), this);
         tickWars();
 
         File warFolder = new File(getDataFolder() + File.separator + "wars");
@@ -63,7 +64,7 @@ public final class TownWars extends JavaPlugin {
         for (File file : warFolder.listFiles()) {
             try {
                 War war = new War(file);
-                WarManager.setupWar(war, false);
+                WarManager.setupWar(war);
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -85,7 +86,8 @@ public final class TownWars extends JavaPlugin {
 
     public void tickWars() {
         Bukkit.getScheduler().runTaskTimer(this, () -> {
-            for (War war : currentWars) {
+            // Wars can be removed while ticking them, so clone the list to avoid ConcurrentModificationException
+            for (War war : new HashSet<>(currentWars)) {
                 war.tick();
             }
         }, 0, 1);

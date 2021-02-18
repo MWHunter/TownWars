@@ -2,7 +2,6 @@ package org.abyssmc.townwars;
 
 import com.palmergames.bukkit.towny.object.Resident;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.entity.Player;
 
@@ -18,38 +17,34 @@ public class TownWarBossBar {
     }
 
     public void removeEveryoneBossBars() {
-        for (Resident resident : war.attackers.getResidents()) {
-            if (resident.getPlayer() == null) continue;
+        for (Resident resident : war.getOnlineAttackers()) {
             TownWars.adventure().player(resident.getPlayer()).hideBossBar(attackersBossBar);
         }
 
-        for (Resident resident : war.defenders.getResidents()) {
-            if (resident.getPlayer() == null) continue;
+        for (Resident resident : war.getOnlineDefenders()) {
             TownWars.adventure().player(resident.getPlayer()).hideBossBar(defendersBossBar);
         }
     }
 
     public void sendEveryoneBossBars() {
-        for (Resident resident : war.attackers.getResidents()) {
-            if (resident.getPlayer() == null) continue;
+        for (Resident resident : war.getOnlineAttackers()) {
             TownWars.adventure().player(resident.getPlayer()).showBossBar(attackersBossBar);
         }
 
-        for (Resident resident : war.defenders.getResidents()) {
-            if (resident.getPlayer() == null) continue;
+        for (Resident resident : war.getOnlineDefenders()) {
             TownWars.adventure().player(resident.getPlayer()).showBossBar(defendersBossBar);
         }
     }
 
-    public void sendPlayerBossBar(Player player) {
-        for (Resident resident : war.attackers.getResidents()) {
+    public void sendPlayerBossBarIfInWar(Player player) {
+        for (Resident resident : war.getOnlineAttackers()) {
             if (resident.getPlayer() == player) {
                 TownWars.adventure().player(resident.getPlayer()).showBossBar(attackersBossBar);
                 return;
             }
         }
 
-        for (Resident resident : war.defenders.getResidents()) {
+        for (Resident resident : war.getOnlineDefenders()) {
             if (resident.getPlayer() == player) {
                 TownWars.adventure().player(resident.getPlayer()).showBossBar(defendersBossBar);
                 return;
@@ -58,50 +53,33 @@ public class TownWarBossBar {
     }
 
     public void updateBossBar() {
-        // TODO: How to do this with nation wars?
-        // TODO: Separate bars for attackers and defenders
-        // TODO: Add this stuff to the language config
-        // I prefer sending time left in chat so more valuable info isn't lost.
-
         switch (war.currentState) {
-            case CAPTURING:
+            case WAR:
                 attackersBossBar.color(net.kyori.adventure.bossbar.BossBar.Color.GREEN);
-                attackersBossBar.name(LocaleReader.ATTACKING_BOSS_BAR_CAPTURING_MESSAGE);
-                attackersBossBar.progress(Math.max(0, Math.min(1, (float) war.ticksOccupiedWithoutCombat / ConfigHandler.ticksToCaptureTown)));
+                attackersBossBar.name(LegacyComponentSerializer.legacyAmpersand().deserialize(
+                        LocaleReader.ATTACKING_BOSS_BAR_WAR_MESSAGE
+                                .replace("{ATTACKER_LIVES}", String.valueOf(war.attackerLives))
+                                .replace("{DEFENDER_LIVES}", String.valueOf(war.defenderLives))));
+                attackersBossBar.progress(Math.max(0, Math.min(1, 1 - (war.tick - ConfigHandler.ticksBeforeWarBegins)
+                        / ((float) ConfigHandler.tickLimitTownWar - ConfigHandler.ticksBeforeWarBegins))));
 
                 defendersBossBar.color(net.kyori.adventure.bossbar.BossBar.Color.GREEN);
-                defendersBossBar.name(LocaleReader.DEFENDING_BOSS_BAR_CAPTURING_MESSAGE);
-                defendersBossBar.progress(Math.max(0, Math.min(1, (float) war.ticksOccupiedWithoutCombat / ConfigHandler.ticksToCaptureTown)));
-
-                break;
-            case OCCUPIED_IN_COMBAT:
-                attackersBossBar.color(net.kyori.adventure.bossbar.BossBar.Color.YELLOW);
-                attackersBossBar.name(LocaleReader.ATTACKING_BOSS_BAR_OCCUPIED_IN_COMBAT_MESSAGE);
-                attackersBossBar.progress(Math.max(0, Math.min(1, 1 - (float) Math.abs(war.tick - war.lastDamageTakenByAttackersTick) / ConfigHandler.ticksUntilNoLongerInCombat)));
-
-                defendersBossBar.color(net.kyori.adventure.bossbar.BossBar.Color.YELLOW);
-                defendersBossBar.name(LocaleReader.DEFENDING_BOSS_BAR_OCCUPIED_IN_COMBAT_MESSAGE);
-                defendersBossBar.progress(Math.max(0, Math.min(1, 1 - (float) Math.abs(war.tick - war.lastDamageTakenByAttackersTick) / ConfigHandler.ticksUntilNoLongerInCombat)));
-
-                break;
-            case ATTACKERS_MISSING:
-                attackersBossBar.color(net.kyori.adventure.bossbar.BossBar.Color.RED);
-                attackersBossBar.name(LocaleReader.ATTACKING_BOSS_BAR_ATTACKERS_MISSING_MESSAGE);
-                attackersBossBar.progress(Math.max(0, Math.min(1, 1 - (float) war.ticksWithoutAttackersOccupying / ConfigHandler.ticksWithoutAttackersOccupyingUntilDefendersWin)));
-
-                defendersBossBar.color(net.kyori.adventure.bossbar.BossBar.Color.RED);
-                defendersBossBar.name(LocaleReader.DEFENDING_BOSS_BAR_ATTACKERS_MISSING_MESSAGE);
-                defendersBossBar.progress(Math.max(0, Math.min(1, 1 - (float) war.ticksWithoutAttackersOccupying / ConfigHandler.ticksWithoutAttackersOccupyingUntilDefendersWin)));
+                defendersBossBar.name(LegacyComponentSerializer.legacyAmpersand().deserialize(
+                        LocaleReader.DEFENDING_BOSS_BAR_WAR_MESSAGE
+                                .replace("{ATTACKER_LIVES}", String.valueOf(war.attackerLives))
+                                .replace("{DEFENDER_LIVES}", String.valueOf(war.defenderLives))));
+                defendersBossBar.progress(Math.max(0, Math.min(1, 1 - (war.tick - ConfigHandler.ticksBeforeWarBegins)
+                        / ((float) ConfigHandler.tickLimitTownWar - ConfigHandler.ticksBeforeWarBegins))));
 
                 break;
             case PREWAR:
                 attackersBossBar.color(net.kyori.adventure.bossbar.BossBar.Color.WHITE);
                 attackersBossBar.name(LocaleReader.ATTACKING_BOSS_BAR_PREWAR_MESSAGE);
-                attackersBossBar.progress(Math.max(0, Math.min(1, 1 - (float) war.tick / ConfigHandler.ticksBeforeWarBegins)));
+                attackersBossBar.progress(Math.max(0, Math.min(1, war.tick / (float) ConfigHandler.ticksBeforeWarBegins)));
 
                 defendersBossBar.color(net.kyori.adventure.bossbar.BossBar.Color.WHITE);
                 defendersBossBar.name(LocaleReader.DEFENDING_BOSS_BAR_PREWAR_MESSAGE);
-                defendersBossBar.progress(Math.max(0, Math.min(1, 1 - (float) war.tick / ConfigHandler.ticksBeforeWarBegins)));
+                defendersBossBar.progress(Math.max(0, Math.min(1, war.tick / (float) ConfigHandler.ticksBeforeWarBegins)));
 
                 break;
         }

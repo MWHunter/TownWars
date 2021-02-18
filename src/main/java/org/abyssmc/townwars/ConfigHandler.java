@@ -5,14 +5,10 @@ import org.bukkit.configuration.file.FileConfiguration;
 
 import java.util.HashSet;
 
-import static org.abyssmc.townwars.TownWars.allowedSwitches;
-import static org.abyssmc.townwars.TownWars.disallowedBlocksBroken;
+import static org.abyssmc.townwars.TownWars.*;
 
 public class ConfigHandler {
     // General settings
-    public static double minPercentOnline = 0.5;
-    public static double minPlayersOnline = 1;
-    public static double minPlayersOnlineBypassPercent = 4;
     public static boolean conquerIfWithoutNation = true;
     public static boolean conquerIfInNation = true;
     public static double costStartTownWar = 500;
@@ -33,6 +29,12 @@ public class ConfigHandler {
     public static int cooldownSecondsDefendersLoseAttackBySameTown = 86400; // one day
     public static int cooldownSecondsDefendersLoseAttackByDifferentTown = 172800; // two days
 
+    // when people can war
+    public static int cooldownSecondsAttackersLoseAttackSameNation = 604800; //  one week
+    public static int cooldownSecondsAttackersLoseAttackDifferentNation = 600; // 10 minutes
+    public static int cooldownSecondsDefendersLoseAttackBySameNation = 86400; // one day
+    public static int cooldownSecondsDefendersLoseAttackByDifferentNation = 172800; // two days
+
     // How to win the war
     public static int tickLimitTownWar = 18000;
     public static int tickLimitNationWar = 36000;
@@ -43,6 +45,7 @@ public class ConfigHandler {
     public static int ticksBeforeWarBegins = 1200;
     public static int ticksToRestoreBrokenBlocks = 1200;
     public static int ticksToRemovePlacedBlocks = 600;
+    public static double livesMultiplier = 3.0D;
     public static TownWars plugin;
     public static FileConfiguration config;
 
@@ -50,9 +53,6 @@ public class ConfigHandler {
         addMaterials();
 
         // General settings
-        minPercentOnline = config.getDouble("minPercentOnline", 0.5);
-        minPlayersOnline = config.getInt("minPlayersOnline", 1);
-        minPlayersOnlineBypassPercent = config.getInt("minPlayersOnlineBypassPercent", 4);
         conquerIfWithoutNation = config.getBoolean("conquerIfWithoutNation", true);
         conquerIfInNation = config.getBoolean("conquerIfInNation", true);
         costStartTownWar = config.getDouble("costStartTownWar", 500);
@@ -68,10 +68,11 @@ public class ConfigHandler {
         townWarBlocksTransferPercent = config.getDouble("townWarBlocksTransferPercent", 0.1);
 
         // when people can war
-        cooldownSecondsAttackersLoseAttackSameTown = config.getInt("cooldown-seconds-attackers-lose-attack-same-town", 604800); //  one week
-        cooldownSecondsAttackersLoseAttackDifferentTown = config.getInt("cooldown-seconds-attackers-lose-attack-different-town", 600); // 10 minutes
-        cooldownSecondsDefendersLoseAttackBySameTown = config.getInt("cooldown-seconds-defenders-lose-attack-by-same-town", 172800); // one day
-        cooldownSecondsDefendersLoseAttackByDifferentTown = config.getInt("cooldown-seconds-defenders-lose-attack-by-different-town", 86400); // two days
+        cooldownSecondsAttackersLoseAttackSameNation = config.getInt("cooldown-seconds-attackers-lose-attack-same-nation", 604800); //  one week
+        cooldownSecondsAttackersLoseAttackDifferentNation = config.getInt("cooldown-seconds-attackers-lose-attack-different-nation", 600); // 10 minutes
+        cooldownSecondsDefendersLoseAttackBySameNation = config.getInt("cooldown-seconds-defenders-lose-attack-by-same-nation", 172800); // one day
+        cooldownSecondsDefendersLoseAttackByDifferentNation = config.getInt("cooldown-seconds-defenders-lose-attack-by-different-nation", 86400); // two days
+
 
         // How to win the war
         tickLimitTownWar = config.getInt("tickLimitTownWar", 18000);
@@ -83,10 +84,13 @@ public class ConfigHandler {
         ticksBeforeWarBegins = config.getInt("ticksBeforeWarBegins", 1200);
         ticksToRestoreBrokenBlocks = config.getInt("ticksToRestoreBrokenBlocks", 1200);
         ticksToRemovePlacedBlocks = config.getInt("ticksToRemovePlacedBlocks",600);
+        livesMultiplier = config.getDouble("livesMultiplier", 3.0D);
     }
 
     public static void addMaterials() {
         allowedSwitches = new HashSet<>();
+        disallowedBlocksBroken = new HashSet<>();
+        disallowedRTPBlocks = new HashSet<>();
 
         for (String string : config.getStringList("allowed-switches-in-war")) {
             try {
@@ -100,6 +104,15 @@ public class ConfigHandler {
         for (String string : config.getStringList("disallow-breaking-blocks-in-war")) {
             try {
                 disallowedBlocksBroken.add(Material.getMaterial(string));
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to parse material " + string);
+                e.printStackTrace();
+            }
+        }
+
+        for (String string : config.getStringList("blacklisted-respawn-blocks")) {
+            try {
+                disallowedRTPBlocks.add(Material.getMaterial(string));
             } catch (Exception e) {
                 plugin.getLogger().warning("Failed to parse material " + string);
                 e.printStackTrace();

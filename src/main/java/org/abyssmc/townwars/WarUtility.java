@@ -2,8 +2,11 @@ package org.abyssmc.townwars;
 
 import com.palmergames.bukkit.towny.TownyAPI;
 import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
+import com.palmergames.bukkit.towny.object.Coord;
 import com.palmergames.bukkit.towny.object.Nation;
 import com.palmergames.bukkit.towny.object.Town;
+import com.palmergames.bukkit.towny.object.TownBlock;
+import com.palmergames.util.MathUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -91,20 +94,6 @@ public class WarUtility {
         return null;
     }
 
-    public static Nation parseInputForNation(String input) {
-        Town town = parseTargetTown(input);
-        Nation nation = parseTargetNation(input);
-
-        if (town == null && nation == null) return null;
-        if (town == null) return nation;
-
-        try {
-            return town.getNation();
-        } catch (NotRegisteredException exception) {
-            return null;
-        }
-    }
-
     public static Nation getPlayerNation(Player player) {
         try {
             return getPlayerTown(player).getNation();
@@ -129,11 +118,33 @@ public class WarUtility {
         }
     }
 
-    public static War getNationWar(Nation targetNation) {
+    public static boolean isTownInWar(Town town) {
+        if (town == null) return false;
         for (War war : TownWars.currentWars) {
-            if (war.defenders.hasNation() && war.getDefendingNation() == targetNation) return war;
-            if (war.attackers.hasNation() && war.getAttackingNation() == targetNation) return war;
+            for (Nation nation : war.nationsAttacking) {
+                if (nation.hasTown(town)) {
+                    return true;
+                }
+            }
+
+            for (Nation nation : war.nationsAttacking) {
+                if (nation.hasTown(town)) {
+                    return true;
+                }
+            }
         }
-        return null;
+        return false;
+    }
+
+    public static WarJoiningAsEnum joiningAsEnum(Nation playerNation, Nation attackingNation, Nation defendingNation) {
+        if (playerNation.hasAlly(attackingNation) && playerNation.hasAlly(defendingNation)) {
+            return WarJoiningAsEnum.BOTH;
+        } else if (playerNation.hasAlly(defendingNation)) {
+            return WarJoiningAsEnum.DEFENDER;
+        } else if (playerNation.hasAlly(attackingNation)) {
+            return WarJoiningAsEnum.ATTACKER;
+        } else {
+            return WarJoiningAsEnum.NONE;
+        }
     }
 }
