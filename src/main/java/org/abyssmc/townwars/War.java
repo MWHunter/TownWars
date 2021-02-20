@@ -571,7 +571,7 @@ public class War {
             }
 
         } else {
-            residents = attackers.getResidents();
+            residents = new ArrayList<>(attackers.getResidents());
             residents.removeIf(resident -> resident.getPlayer() == null);
         }
         return residents;
@@ -589,7 +589,7 @@ public class War {
             }
 
         } else {
-            residents = defenders.getResidents();
+            residents = new ArrayList<>(defenders.getResidents());
             residents.removeIf(resident -> resident.getPlayer() == null);
         }
         return residents;
