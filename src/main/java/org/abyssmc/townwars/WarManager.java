@@ -12,7 +12,6 @@ import org.bukkit.Location;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 
-import java.time.Instant;
 import java.util.*;
 
 // This class plays with War objects.
@@ -538,7 +537,6 @@ public class WarManager {
         }
 
 
-
         // Both the attacker and defender want peace
         deleteWar(war);
     }
@@ -642,7 +640,7 @@ public class WarManager {
         TownWars.currentWars.remove(war);
 
         // Set the defending town as conquered
-        if (war.attackers.hasNation() && !war.isNationWar && war.defenders.hasNation() && ConfigHandler.conquerIfInNation) {
+        if (war.currentState == War.WarState.WAR && war.attackers.hasNation() && !war.isNationWar && war.defenders.hasNation() && ConfigHandler.conquerIfInNation) {
             try {
                 war.defenders.setNation(null);
                 war.defenders.setNation(war.getAttackingNation());
@@ -653,7 +651,7 @@ public class WarManager {
             }
         }
 
-        if (war.attackers.hasNation() && !war.defenders.hasNation() && ConfigHandler.conquerIfWithoutNation) {
+        if (war.currentState == War.WarState.WAR && war.attackers.hasNation() && !war.defenders.hasNation() && ConfigHandler.conquerIfWithoutNation) {
             try {
                 war.defenders.setNation(war.getAttackingNation());
                 war.defenders.setConquered(true);
@@ -668,22 +666,28 @@ public class WarManager {
                 war.messageGlobal(LocaleReader.GLOBAL_ATTACKERS_WIN_NATION_WAR);
 
                 int defenderBlocks = 0;
+                int baseBlocksPerAttacker = 0;
+                int remainingBlocks = 0;
 
-                for (Town town : war.getDefendingNation().getTowns()) {
-                    int takenBlocks = (int) (town.getTotalBlocks() * ConfigHandler.nationWarBlocksTransferPercent);
-                    town.setBonusBlocks(town.getBonusBlocks() - takenBlocks);
-                    defenderBlocks += takenBlocks;
+                if (war.currentState == War.WarState.WAR) {
+                    for (Town town : war.getDefendingNation().getTowns()) {
+                        int takenBlocks = (int) (town.getTotalBlocks() * ConfigHandler.nationWarBlocksTransferPercent);
+
+                        town.setBonusBlocks(town.getBonusBlocks() - takenBlocks);
+                        defenderBlocks += takenBlocks;
+                    }
+
+                    int attackerTownCount = 0;
+                    for (Nation nation : war.nationsAttacking) {
+                        attackerTownCount += nation.getTowns().size();
+                    }
+
+                    // Make it so bonus blocks aren't lost by rounding... not like it matters much
+                    baseBlocksPerAttacker = defenderBlocks / attackerTownCount;
+                    remainingBlocks = defenderBlocks - (baseBlocksPerAttacker * attackerTownCount);
+                    war.attackers.setBonusBlocks(war.attackers.getBonusBlocks() + remainingBlocks);
                 }
 
-                int attackerTownCount = 0;
-                for (Nation nation : war.nationsAttacking) {
-                    attackerTownCount += nation.getTowns().size();
-                }
-
-                // Make it so bonus blocks aren't lost by rounding... not like it matters much
-                int baseBlocksPerAttacker = defenderBlocks / attackerTownCount;
-                int remainingBlocks = defenderBlocks - (baseBlocksPerAttacker * attackerTownCount);
-                war.attackers.setBonusBlocks(war.attackers.getBonusBlocks() + remainingBlocks);
 
                 war.messageAttackingNation(LocaleReader.ATTACKERS_YOU_WON_NATION_WAR
                         .replace("{CLAIMS}", String.valueOf(remainingBlocks + baseBlocksPerAttacker))
@@ -709,10 +713,13 @@ public class WarManager {
 
             } else {
                 int defenderBlocks = war.defenders.getTotalBlocks();
-                int lost = (int) Math.ceil(defenderBlocks * ConfigHandler.townWarBlocksTransferPercent);
+                int lost = 0;
 
-                war.defenders.setBonusBlocks(war.defenders.getBonusBlocks() - lost);
-                war.attackers.setBonusBlocks(war.attackers.getBonusBlocks() + lost);
+                if (war.currentState == War.WarState.WAR) {
+                    lost = (int) Math.ceil(defenderBlocks * ConfigHandler.townWarBlocksTransferPercent);
+                    war.defenders.setBonusBlocks(war.defenders.getBonusBlocks() - lost);
+                    war.attackers.setBonusBlocks(war.attackers.getBonusBlocks() + lost);
+                }
 
                 war.messageGlobal(LocaleReader.GLOBAL_ATTACKERS_WIN_TOWN_WAR);
 
