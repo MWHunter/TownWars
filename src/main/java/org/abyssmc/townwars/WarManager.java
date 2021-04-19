@@ -412,16 +412,6 @@ public class WarManager {
             return false;
         }
 
-        if (attackers.isNeutral()) {
-            LocaleReader.send(player, LocaleReader.COMMAND_CANNOT_ATTACK_AS_NEUTRAL);
-            return false;
-        }
-
-        if (defenders.isNeutral()) {
-            LocaleReader.send(player, LocaleReader.COMMAND_CANNOT_ATTACK_NEUTRAL);
-            return false;
-        }
-
         return true;
     }
 
