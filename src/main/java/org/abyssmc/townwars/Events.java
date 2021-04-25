@@ -80,33 +80,25 @@ public class Events implements Listener {
         if (TownWars.disallowedBlocksBroken.contains(event.getBlock().getType())) return;
 
         try {
-            if (!towny.getDataSource().getResident(event.getPlayer().getName()).hasTown()) return;
-
             Town placerTown = towny.getDataSource().getResident(event.getPlayer().getName()).getTown();
             Town destroyTown = null;
 
             if (event.getTownBlock() != null && event.getTownBlock().hasTown())
                 destroyTown = event.getTownBlock().getTown();
 
-            // Roll back stuff in the wilderness
+            if (placerTown == null) return;
+
+            // Don't interfere with people placing stuff in their own territorry
+            if (placerTown == destroyTown) return;
+
             for (War war : TownWars.currentWars) {
                 if (war.isNationWar) {
                     if (!placerTown.hasNation()) continue;
+                    if (destroyTown == null || !destroyTown.hasNation()) return;
 
-                    // Let attackers and allies of attackers break things in their own territory
-                    if (destroyTown != null && destroyTown.hasNation() && war.nationsAttacking.contains(destroyTown.getNation()) && war.nationsAttacking.contains(placerTown.getNation())) {
-                        event.setCancelled(false);
-                        return;
-                    }
-
-                    // Let defenders and allies of defenders break things in their own territory
-                    if (destroyTown != null && destroyTown.hasNation() && war.nationsDefending.contains(destroyTown.getNation()) && war.nationsDefending.contains(placerTown.getNation())) {
-                        event.setCancelled(false);
-                        return;
-                    }
-
-                    // Allow attackers to break things in the defenders territory, which will be rolled back
-                    if (destroyTown != null && destroyTown.hasNation() && war.nationsDefending.contains(destroyTown.getNation()) && war.nationsAttacking.contains(placerTown.getNation())) {
+                    // Allow attackers and defenders to place things in each others territory, which will be rolled back
+                    if (war.nationsDefending.contains(destroyTown.getNation()) || war.nationsAttacking.contains(destroyTown.getNation())
+                            && war.nationsDefending.contains(placerTown.getNation()) || war.nationsAttacking.contains(placerTown.getNation())) {
                         if (event.getBlock().getState() instanceof InventoryHolder) return;
 
                         event.setCancelled(false);
@@ -114,27 +106,19 @@ public class Events implements Listener {
                         war.restoreBlockBroken(event.getBlock().getLocation(), event.getBlock().getBlockData());
                     }
                 } else {
-                    // Let attackers break things in their own territory
-                    if (placerTown == destroyTown) {
+                    // Let attackers and defenders place things in each other's territory, which will be rolled back
+                    if (placerTown == war.attackers || placerTown == war.defenders && destroyTown == war.attackers || destroyTown == war.defenders) {
+                        if (event.getBlock().getState() instanceof InventoryHolder) return;
+
                         event.setCancelled(false);
-                        return;
-                    }
-
-                    // Let attackers break things in the defender's territory, which will be rolled back
-                    if (placerTown == war.attackers || placerTown == war.defenders) {
-                        if (!event.getTownBlock().hasTown()) {
-                            if (event.getBlock().getState() instanceof InventoryHolder) return;
-
-                            event.setCancelled(false);
-                            cancelNextBlockBreakDrop.add(event.getPlayer().getUniqueId());
-                            war.restoreBlockBroken(event.getBlock().getLocation(), event.getBlock().getBlockData());
-                        }
+                        cancelNextBlockBreakDrop.add(event.getPlayer().getUniqueId());
+                        war.restoreBlockBroken(event.getBlock().getLocation(), event.getBlock().getBlockData());
                     }
                 }
             }
-        } catch (NotRegisteredException e) {
-            e.printStackTrace();
+        } catch (NotRegisteredException ignored) {
         }
+
     }
 
     @EventHandler
@@ -174,46 +158,29 @@ public class Events implements Listener {
 
             if (placerTown == null) return;
 
+            // Don't interfere with people placing stuff in their own territorry
+            if (placerTown == destroyTown) return;
+
             for (War war : TownWars.currentWars) {
                 if (war.isNationWar) {
                     if (!placerTown.hasNation()) continue;
+                    if (destroyTown == null || !destroyTown.hasNation()) return;
 
-                    // Let attackers and allies of attackers place things in their own territory
-                    if (destroyTown != null && destroyTown.hasNation() && war.nationsAttacking.contains(destroyTown.getNation()) && war.nationsAttacking.contains(placerTown.getNation())) {
-                        event.setCancelled(false);
-                        return;
-                    }
-
-                    // Let defenders and allies of defenders place things in their own territory
-                    if (destroyTown != null && destroyTown.hasNation() && war.nationsDefending.contains(destroyTown.getNation()) && war.nationsDefending.contains(placerTown.getNation())) {
-                        event.setCancelled(false);
-                        return;
-                    }
-
-                    // Allow attackers to place things in the defenders territory, which will be rolled back
-                    if (destroyTown != null && destroyTown.hasNation() && war.nationsDefending.contains(destroyTown.getNation()) && war.nationsAttacking.contains(placerTown.getNation())) {
+                    // Allow attackers and defenders to place things in each others territory, which will be rolled back
+                    if (war.nationsDefending.contains(destroyTown.getNation()) || war.nationsAttacking.contains(destroyTown.getNation())
+                            && war.nationsDefending.contains(placerTown.getNation()) || war.nationsAttacking.contains(placerTown.getNation())) {
                         if (event.getBlock().getState() instanceof InventoryHolder) return;
 
                         event.setCancelled(false);
                         logNextBlockPlace.put(event.getPlayer().getUniqueId(), war);
-                        war.restoreBlockBroken(event.getBlock().getLocation(), event.getBlock().getBlockData());
                     }
                 } else {
-                    // Let attackers break things in their own territory
-                    if (placerTown == destroyTown) {
+                    // Let attackers and defenders place things in each other's territory, which will be rolled back
+                    if (placerTown == war.attackers || placerTown == war.defenders && destroyTown == war.attackers || destroyTown == war.defenders) {
+                        if (event.getBlock().getState() instanceof InventoryHolder) return;
+
                         event.setCancelled(false);
-                        return;
-                    }
-
-                    // Let attackers break things in the defender's territory, which will be rolled back
-                    if (placerTown == war.attackers || placerTown == war.defenders) {
-                        if (!event.getTownBlock().hasTown()) {
-                            if (event.getBlock().getState() instanceof InventoryHolder) return;
-
-                            event.setCancelled(false);
-                            logNextBlockPlace.put(event.getPlayer().getUniqueId(), war);
-                            war.restoreBlockBroken(event.getBlock().getLocation(), event.getBlock().getBlockData());
-                        }
+                        logNextBlockPlace.put(event.getPlayer().getUniqueId(), war);
                     }
                 }
             }

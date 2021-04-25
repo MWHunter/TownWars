@@ -173,9 +173,9 @@ public class CommandHandler extends BaseCommand implements CommandExecutor {
     }
 
     public void surrenderCommand(Player player, String[] args) {
-        if (player.hasPermission("townwars.surrender")) {
-            War war = WarUtility.parseTargetWar(args, player);
+        War war = WarUtility.parseTargetWar(args, player);
 
+        if (war.currentState == War.WarState.WAR && player.hasPermission("townwars.surrender") || war.currentState == War.WarState.PREWAR && player.hasPermission("townwars.presurrender")) {
             if (war == null) {
                 LocaleReader.send(player, LocaleReader.COMMAND_MUST_SPECIFY_WAR_TO_SURRENDER);
                 return;
